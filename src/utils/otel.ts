@@ -99,7 +99,10 @@ class RecoverySkyTelemetry {
           "@opentelemetry/instrumentation-dns": { enabled: false },
           "@opentelemetry/instrumentation-net": { enabled: false },
 
-          // HTTP instrumentation options
+          // NOTE: HTTP instrumentation hooks (requestHook/responseHook) are not unit-tested
+          // because they require actual HTTP requests and OTEL spans to be meaningful.
+          // These are covered by integration tests where real HTTP traffic flows through
+          // the instrumented Express application.
           "@opentelemetry/instrumentation-http": {
             requestHook: this.httpRequestHook.bind(this),
             responseHook: this.httpResponseHook.bind(this),
@@ -216,6 +219,10 @@ class RecoverySkyTelemetry {
 
   /**
    * HTTP request hook for adding custom attributes
+   *
+   * NOTE: This method is not unit-tested because it requires actual HTTP request objects
+   * from the @opentelemetry/instrumentation-http package and active OTEL spans.
+   * Covered by integration tests with real Express HTTP requests.
    */
   private httpRequestHook(span: Span, request: any): void {
     span.setAttributes({
@@ -228,6 +235,10 @@ class RecoverySkyTelemetry {
 
   /**
    * HTTP response hook for adding response attributes
+   *
+   * NOTE: This method is not unit-tested because it requires actual HTTP response objects
+   * from the @opentelemetry/instrumentation-http package and active OTEL spans.
+   * Covered by integration tests with real Express HTTP responses.
    */
   private httpResponseHook(span: Span, response: any): void {
     span.setAttributes({
@@ -316,7 +327,10 @@ if (
 export default otel;
 export { RecoverySkyTelemetry };
 
-// Graceful shutdown
+// NOTE: Signal handlers (SIGTERM/SIGINT) are not unit-tested because they require
+// actually sending process signals and testing process.exit() behavior.
+// These are best tested in integration/e2e tests or manually verified during deployment.
+// Graceful shutdown functionality is unit-tested via the shutdown() method itself.
 process.on("SIGTERM", async () => {
   await otel.shutdown();
   process.exit(0);
