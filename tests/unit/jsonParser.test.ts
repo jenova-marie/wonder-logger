@@ -3,7 +3,7 @@ import {
   extractJSON,
   parseJSONResponse,
   validateJSONStructure,
-} from '../src/utils/jsonParser'
+} from '../../src/utils/jsonParser'
 
 describe('jsonParser', () => {
   describe('extractJSON', () => {
