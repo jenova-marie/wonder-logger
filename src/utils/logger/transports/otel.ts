@@ -44,7 +44,7 @@ export interface OtelTransportOptions {
 
   /**
    * OTLP endpoint URL
-   * @default 'http://localhost:4318/v1/logs'
+   * @default process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs'
    */
   endpoint?: string
 
@@ -80,7 +80,7 @@ export function createOtelTransport(
     serviceVersion = '1.0.0',
     serviceInstanceId = `${serviceName}-${process.pid}`,
     environment = process.env.NODE_ENV || 'development',
-    endpoint = 'http://localhost:4318/v1/logs',
+    endpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT || 'http://localhost:4318/v1/logs',
     resourceAttributes = {},
     level = 'info',
     exportIntervalMillis = 5000,
