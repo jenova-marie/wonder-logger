@@ -45,14 +45,14 @@ describe('OTLP metrics exporter', () => {
     })
 
     it('should support various OTLP endpoints', async () => {
-      process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = 'http://grafana-tempo:4318/v1/metrics'
+      process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = 'https://tempo.rso:4318/v1/metrics'
 
       const { createOtlpMetricsExporter } = await import('../../../../../src/utils/otel/exporters/metrics/otlp')
 
       createOtlpMetricsExporter()
 
       expect(mockOTLPMetricExporter).toHaveBeenCalledWith({
-        url: 'http://grafana-tempo:4318/v1/metrics',
+        url: 'https://tempo.rso:4318/v1/metrics',
       })
     })
 

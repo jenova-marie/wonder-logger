@@ -29,7 +29,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'http://localhost:4318/v1/traces',
         headers: {},
       })
     })
@@ -42,7 +41,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'https://api.honeycomb.io/v1/traces',
         headers: {},
       })
     })
@@ -55,7 +53,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'http://localhost:4318/v1/traces',
         headers: {
           Authorization: 'Bearer token123',
           'X-Custom': 'value',
@@ -76,7 +73,6 @@ describe('OTLP trace exporter', () => {
         'not-valid-json'
       )
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'http://localhost:4318/v1/traces',
         headers: {},
       })
 
@@ -91,7 +87,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'http://localhost:4318/v1/traces',
         headers: {},
       })
     })
@@ -108,7 +103,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'http://localhost:4318/v1/traces',
         headers: {
           'x-api-key': 'secret-key',
           'x-tenant-id': 'tenant-123',
@@ -126,7 +120,6 @@ describe('OTLP trace exporter', () => {
       createOtlpTraceExporter()
 
       expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
-        url: 'https://trace.example.com/v1/traces',
         headers: {
           Authorization: 'Bearer test',
         },

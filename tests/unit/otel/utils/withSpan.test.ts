@@ -11,12 +11,13 @@ const mockTracer = {
   startSpan: vi.fn(() => mockSpan),
 }
 
-const mockTrace = {
-  getTracer: vi.fn(() => mockTracer),
-}
-
 const mockActiveContext = {
   setValue: vi.fn(() => mockActiveContext),
+}
+
+const mockTrace = {
+  getTracer: vi.fn(() => mockTracer),
+  setSpan: vi.fn((ctx, span) => mockActiveContext),
 }
 
 const mockContext = {
@@ -163,7 +164,7 @@ describe('withSpan utility', () => {
       await withSpan('test', async () => 'result')
 
       expect(mockContext.active).toHaveBeenCalled()
-      expect(mockActiveContext.setValue).toHaveBeenCalledWith(mockSpan, mockSpan)
+      expect(mockTrace.setSpan).toHaveBeenCalledWith(mockActiveContext, mockSpan)
     })
 
     it('should execute function within context', async () => {
