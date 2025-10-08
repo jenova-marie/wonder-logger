@@ -4,7 +4,7 @@ A modular, testable, and composable OpenTelemetry instrumentation system for Nod
 
 ## Philosophy
 
-This implementation follows the **KISS principle** (Keep It Simple, Stupid):
+This implementation follows the **KISS principle** (Keep It Simple, Silly):
 - **Clean**: No singletons, no auto-initialization, no side effects
 - **Testable**: Each module is independently unit-testable
 - **Powerful**: Full composability with explicit configuration
