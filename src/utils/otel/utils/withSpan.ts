@@ -39,7 +39,7 @@ export async function withSpan<T>(
   const tracer = trace.getTracer(tracerName)
   const span = tracer.startSpan(name)
 
-  return context.with(context.active().setValue(span as any, span), async () => {
+  return context.with(trace.setSpan(context.active(), span), async () => {
     try {
       const result = await fn()
       span.setStatus({ code: SpanStatusCode.OK })

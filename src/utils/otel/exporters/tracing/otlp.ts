@@ -10,8 +10,11 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
  * Creates an OTLP trace exporter
  *
  * Configures the exporter using environment variables:
- * - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP endpoint URL (default: http://localhost:4318/v1/traces)
+ * - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP base URL (default: http://localhost:4318)
  * - OTEL_EXPORTER_OTLP_HEADERS: JSON string of headers to include (optional)
+ *
+ * NOTE: The OTLPTraceExporter automatically appends /v1/traces to the URL,
+ * so the endpoint should be the base URL only (e.g., http://localhost:4318)
  *
  * @returns OTLPTraceExporter instance
  *
@@ -26,7 +29,11 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
  * ```
  */
 export function createOtlpTraceExporter(): OTLPTraceExporter {
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces'
+  // Set default endpoint if not in environment
+  if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4318'
+  }
+
   let headers: Record<string, string> = {}
 
   if (process.env.OTEL_EXPORTER_OTLP_HEADERS) {
@@ -37,5 +44,7 @@ export function createOtlpTraceExporter(): OTLPTraceExporter {
     }
   }
 
-  return new OTLPTraceExporter({ url: endpoint, headers })
+  // Let exporter read OTEL_EXPORTER_OTLP_ENDPOINT from env
+  // Don't pass url - avoids conflicts with signal-specific endpoints
+  return new OTLPTraceExporter({ headers })
 }
