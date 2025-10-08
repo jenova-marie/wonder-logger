@@ -93,6 +93,7 @@ export function createTelemetry(options: TelemetryOptions): NodeSDK {
         metricReaders.push(
           new PeriodicExportingMetricReader({
             exporter: createOtlpMetricsExporter(),
+            exportIntervalMillis: metricsOptions.exportIntervalMillis || 60000,
           })
         )
       }
@@ -111,7 +112,30 @@ export function createTelemetry(options: TelemetryOptions): NodeSDK {
   sdk.start()
   setupGracefulShutdown(sdk)
 
-  return sdk
+  // Return SDK with additional helper methods for testing
+  return {
+    /**
+     * Start the SDK (already called in createTelemetry, provided for compatibility)
+     */
+    start: () => sdk.start(),
+
+    /**
+     * Shutdown the SDK and flush all pending telemetry
+     */
+    shutdown: () => sdk.shutdown(),
+
+    /**
+     * Force flush all pending telemetry data (useful for testing)
+     * @returns Promise that resolves when flush is complete
+     */
+    forceFlush: async (): Promise<void> => {
+      // NodeSDK doesn't expose forceFlush directly, but we can access the meter provider
+      const meterProvider = (sdk as any)._meterProvider
+      if (meterProvider && typeof meterProvider.forceFlush === 'function') {
+        await meterProvider.forceFlush()
+      }
+    },
+  }
 }
 
 // Re-export utilities and types

@@ -42,6 +42,8 @@ export interface MetricsOptions {
   exporters?: ('prometheus' | 'otlp')[]
   /** Port for Prometheus metrics endpoint (defaults to 9464) */
   port?: number
+  /** Export interval in milliseconds for OTLP exporter (defaults to 60000) */
+  exportIntervalMillis?: number
 }
 
 /**
