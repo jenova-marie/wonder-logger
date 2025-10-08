@@ -11,426 +11,384 @@ const mockNodeSDK = vi.fn().mockImplementation(() => ({
   shutdown: mockSDKShutdown,
 }))
 
-const mockGetTracer = vi.fn(() => ({
-  startActiveSpan: vi.fn(),
-}))
+const mockResourceFromAttributes = vi.fn((attrs) => ({ attributes: attrs }))
+const mockConsoleSpanExporter = vi.fn()
+const mockOTLPTraceExporter = vi.fn()
+const mockJaegerExporter = vi.fn()
+const mockPrometheusExporter = vi.fn()
+const mockOTLPMetricExporter = vi.fn()
+const mockBatchSpanProcessor = vi.fn()
+const mockPeriodicExportingMetricReader = vi.fn()
+const mockGetNodeAutoInstrumentations = vi.fn(() => [])
+const mockHttpInstrumentation = vi.fn()
 
-const mockGetMeter = vi.fn(() => ({
-  createHistogram: vi.fn(),
-  createCounter: vi.fn(),
-}))
-
+// Mock all required modules
 vi.mock('@opentelemetry/sdk-node', () => ({
   NodeSDK: mockNodeSDK,
 }))
 
 vi.mock('@opentelemetry/resources', () => ({
-  resourceFromAttributes: vi.fn((attrs) => ({ attributes: attrs })),
-}))
-
-vi.mock('@opentelemetry/auto-instrumentations-node', () => ({
-  getNodeAutoInstrumentations: vi.fn(() => []),
-}))
-
-vi.mock('@opentelemetry/sdk-metrics', () => ({
-  PeriodicExportingMetricReader: vi.fn(),
+  resourceFromAttributes: mockResourceFromAttributes,
 }))
 
 vi.mock('@opentelemetry/semantic-conventions', () => ({
   SEMRESATTRS_SERVICE_NAME: 'service.name',
   SEMRESATTRS_SERVICE_VERSION: 'service.version',
-}))
-
-vi.mock('@opentelemetry/exporter-trace-otlp-http', () => ({
-  OTLPTraceExporter: vi.fn(),
-}))
-
-vi.mock('@opentelemetry/exporter-jaeger', () => ({
-  JaegerExporter: vi.fn(),
+  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT: 'deployment.environment',
 }))
 
 vi.mock('@opentelemetry/sdk-trace-base', () => ({
-  ConsoleSpanExporter: vi.fn(),
+  BatchSpanProcessor: mockBatchSpanProcessor,
+  ConsoleSpanExporter: mockConsoleSpanExporter,
 }))
 
-vi.mock('@opentelemetry/exporter-metrics-otlp-http', () => ({
-  OTLPMetricExporter: vi.fn(),
+vi.mock('@opentelemetry/exporter-trace-otlp-http', () => ({
+  OTLPTraceExporter: mockOTLPTraceExporter,
+}))
+
+vi.mock('@opentelemetry/exporter-jaeger', () => ({
+  JaegerExporter: mockJaegerExporter,
 }))
 
 vi.mock('@opentelemetry/exporter-prometheus', () => ({
-  PrometheusExporter: vi.fn(),
+  PrometheusExporter: mockPrometheusExporter,
 }))
 
-vi.mock('@opentelemetry/api', () => ({
-  trace: {
-    getTracer: mockGetTracer,
-  },
-  metrics: {
-    getMeter: mockGetMeter,
-  },
+vi.mock('@opentelemetry/exporter-metrics-otlp-http', () => ({
+  OTLPMetricExporter: mockOTLPMetricExporter,
 }))
 
-describe('otel.ts', () => {
+vi.mock('@opentelemetry/sdk-metrics', () => ({
+  PeriodicExportingMetricReader: mockPeriodicExportingMetricReader,
+}))
+
+vi.mock('@opentelemetry/auto-instrumentations-node', () => ({
+  getNodeAutoInstrumentations: mockGetNodeAutoInstrumentations,
+}))
+
+vi.mock('@opentelemetry/instrumentation-http', () => ({
+  HttpInstrumentation: mockHttpInstrumentation,
+}))
+
+describe('otel modular architecture', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env = { ...originalEnv }
-    delete process.env.OTEL_SERVICE_NAME
-    delete process.env.OTEL_SERVICE_VERSION
     delete process.env.NODE_ENV
-    delete process.env.OTEL_TRACE_EXPORTER
-    delete process.env.OTEL_METRIC_EXPORTER
-    delete process.env.OTEL_SDK_DISABLED
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+    delete process.env.OTEL_EXPORTER_OTLP_HEADERS
+    delete process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+    delete process.env.JAEGER_ENDPOINT
   })
 
   afterEach(() => {
     process.env = originalEnv
   })
 
-  describe('RecoverySkyTelemetry class', () => {
-    it('should create instance with default service name', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
+  describe('createTelemetry factory', () => {
+    it('should create SDK with default configuration', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const telemetry = new RecoverySkyTelemetry()
+      const sdk = createTelemetry({
+        serviceName: 'test-service',
+      })
 
-      // Access private fields via test
-      expect(telemetry).toBeDefined()
-    })
-
-    it('should use OTEL_SERVICE_NAME environment variable', async () => {
-      process.env.OTEL_SERVICE_NAME = 'custom-service'
-
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      const sdkCall = mockNodeSDK.mock.calls[0][0]
-      expect(sdkCall.resource.attributes['service.name']).toBe('custom-service')
-    })
-
-    it('should use OTEL_SERVICE_VERSION environment variable', async () => {
-      process.env.OTEL_SERVICE_VERSION = '2.0.0'
-
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      const sdkCall = mockNodeSDK.mock.calls[0][0]
-      expect(sdkCall.resource.attributes['service.version']).toBe('2.0.0')
-    })
-  })
-
-  describe('initialization', () => {
-    it('should initialize SDK with defaults', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
+      expect(sdk).toBeDefined()
+      expect(mockResourceFromAttributes).toHaveBeenCalledWith({
+        'service.name': 'test-service',
+        'service.version': '0.0.0',
+        'deployment.environment': 'development',
+      })
       expect(mockNodeSDK).toHaveBeenCalled()
       expect(mockSDKStart).toHaveBeenCalled()
     })
 
-    it('should warn if already initialized', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    it('should create SDK with custom service metadata', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      createTelemetry({
+        serviceName: 'my-api',
+        serviceVersion: '2.1.0',
+        environment: 'production',
+      })
 
-      telemetry.init()
-      telemetry.init() // Second call
-
-      expect(consoleSpy).toHaveBeenCalledWith('OpenTelemetry already initialized')
-      consoleSpy.mockRestore()
+      expect(mockResourceFromAttributes).toHaveBeenCalledWith({
+        'service.name': 'my-api',
+        'service.version': '2.1.0',
+        'deployment.environment': 'production',
+      })
     })
 
-    it('should initialize tracer and meter', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+    it('should use NODE_ENV when environment not specified', async () => {
+      process.env.NODE_ENV = 'staging'
 
-      telemetry.init()
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const tracer = telemetry.getTracer()
-      const meter = telemetry.getMeter()
+      createTelemetry({
+        serviceName: 'test-service',
+      })
 
-      expect(tracer).toBeDefined()
-      expect(meter).toBeDefined()
+      expect(mockResourceFromAttributes).toHaveBeenCalledWith({
+        'service.name': 'test-service',
+        'service.version': '0.0.0',
+        'deployment.environment': 'staging',
+      })
     })
   })
 
   describe('trace exporters', () => {
     it('should use console exporter by default', async () => {
-      const { ConsoleSpanExporter } = await import('@opentelemetry/sdk-trace-base')
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      createTelemetry({
+        serviceName: 'test-service',
+      })
 
-      telemetry.init()
-
-      expect(ConsoleSpanExporter).toHaveBeenCalled()
+      expect(mockConsoleSpanExporter).toHaveBeenCalled()
+      expect(mockBatchSpanProcessor).toHaveBeenCalled()
     })
 
-    it('should use OTLP exporter when configured', async () => {
-      process.env.OTEL_TRACE_EXPORTER = 'otlp'
-      const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http')
+    it('should use OTLP trace exporter when configured', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'otlp',
+        },
+      })
 
-      telemetry.init()
-
-      expect(OTLPTraceExporter).toHaveBeenCalled()
+      expect(mockOTLPTraceExporter).toHaveBeenCalled()
+      expect(mockConsoleSpanExporter).not.toHaveBeenCalled()
     })
 
     it('should use Jaeger exporter when configured', async () => {
-      process.env.OTEL_TRACE_EXPORTER = 'jaeger'
-      const { JaegerExporter } = await import('@opentelemetry/exporter-jaeger')
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'jaeger',
+        },
+      })
 
-      telemetry.init()
+      expect(mockJaegerExporter).toHaveBeenCalled()
+      expect(mockConsoleSpanExporter).not.toHaveBeenCalled()
+    })
 
-      expect(JaegerExporter).toHaveBeenCalled()
+    it('should disable tracing when enabled: false', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          enabled: false,
+        },
+      })
+
+      expect(mockConsoleSpanExporter).not.toHaveBeenCalled()
+      expect(mockOTLPTraceExporter).not.toHaveBeenCalled()
+      expect(mockJaegerExporter).not.toHaveBeenCalled()
     })
   })
 
-  describe('metric exporters', () => {
+  describe('metrics exporters', () => {
     it('should use Prometheus exporter by default', async () => {
-      const { PrometheusExporter } = await import('@opentelemetry/exporter-prometheus')
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      expect(PrometheusExporter).toHaveBeenCalled()
-    })
-
-    it('should use OTLP metric exporter when configured', async () => {
-      process.env.OTEL_METRIC_EXPORTER = 'otlp'
-      const { OTLPMetricExporter } = await import('@opentelemetry/exporter-metrics-otlp-http')
-
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      expect(OTLPMetricExporter).toHaveBeenCalled()
-    })
-  })
-
-  describe('getTracer', () => {
-    it('should throw error if not initialized', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      expect(() => telemetry.getTracer()).toThrow(/not initialized/)
-    })
-
-    it('should return tracer after initialization', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-      const tracer = telemetry.getTracer()
-
-      expect(tracer).toBeDefined()
-      expect(mockGetTracer).toHaveBeenCalled()
-    })
-  })
-
-  describe('getMeter', () => {
-    it('should throw error if not initialized', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      expect(() => telemetry.getMeter()).toThrow(/not initialized/)
-    })
-
-    it('should return meter after initialization', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-      const meter = telemetry.getMeter()
-
-      expect(meter).toBeDefined()
-      expect(mockGetMeter).toHaveBeenCalled()
-    })
-  })
-
-  describe('withSpan', () => {
-    it('should throw error if not initialized', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      await expect(
-        telemetry.withSpan('test', {}, async () => 'result')
-      ).rejects.toThrow(/not initialized/)
-    })
-
-    it('should execute function within span', async () => {
-      const mockSpan = {
-        setStatus: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-      }
-
-      const mockStartActiveSpan = vi.fn((name, options, fn) => {
-        return fn(mockSpan)
+      createTelemetry({
+        serviceName: 'test-service',
       })
 
-      mockGetTracer.mockReturnValue({
-        startActiveSpan: mockStartActiveSpan,
+      expect(mockPrometheusExporter).toHaveBeenCalled()
+      // PrometheusExporter is a MetricReader itself, not wrapped in PeriodicExportingMetricReader
+    })
+
+    it('should use custom Prometheus port', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        metrics: {
+          port: 9090,
+        },
       })
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      const result = await telemetry.withSpan('test-span', { key: 'value' }, async () => {
-        return 'success'
-      })
-
-      expect(result).toBe('success')
-      expect(mockStartActiveSpan).toHaveBeenCalledWith(
-        'test-span',
-        { attributes: { key: 'value' } },
+      expect(mockPrometheusExporter).toHaveBeenCalledWith(
+        { port: 9090 },
         expect.any(Function)
       )
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 })
-      expect(mockSpan.end).toHaveBeenCalled()
     })
 
-    it('should record exception on error', async () => {
-      const mockSpan = {
-        setStatus: vi.fn(),
-        end: vi.fn(),
-        recordException: vi.fn(),
-      }
+    it('should support OTLP metrics exporter', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const mockStartActiveSpan = vi.fn((name, options, fn) => {
-        return fn(mockSpan)
+      createTelemetry({
+        serviceName: 'test-service',
+        metrics: {
+          exporters: ['otlp'],
+        },
       })
 
-      mockGetTracer.mockReturnValue({
-        startActiveSpan: mockStartActiveSpan,
+      expect(mockOTLPMetricExporter).toHaveBeenCalled()
+      expect(mockPrometheusExporter).not.toHaveBeenCalled()
+    })
+
+    it('should support multiple metrics exporters', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        metrics: {
+          exporters: ['prometheus', 'otlp'],
+        },
       })
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      expect(mockPrometheusExporter).toHaveBeenCalled()
+      expect(mockOTLPMetricExporter).toHaveBeenCalled()
+    })
 
-      telemetry.init()
+    it('should disable metrics when enabled: false', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      const error = new Error('test error')
-
-      await expect(
-        telemetry.withSpan('test-span', {}, async () => {
-          throw error
-        })
-      ).rejects.toThrow('test error')
-
-      expect(mockSpan.recordException).toHaveBeenCalledWith(error)
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({
-        code: 2,
-        message: 'test error',
+      createTelemetry({
+        serviceName: 'test-service',
+        metrics: {
+          enabled: false,
+        },
       })
-      expect(mockSpan.end).toHaveBeenCalled()
+
+      expect(mockPrometheusExporter).not.toHaveBeenCalled()
+      expect(mockOTLPMetricExporter).not.toHaveBeenCalled()
     })
   })
 
-  describe('shutdown', () => {
-    it('should shutdown SDK if initialized', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+  describe('auto-instrumentation', () => {
+    it('should include auto-instrumentations with HTTP hooks', async () => {
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      telemetry.init()
-      await telemetry.shutdown()
+      createTelemetry({
+        serviceName: 'test-service',
+      })
 
-      expect(mockSDKShutdown).toHaveBeenCalled()
-    })
-
-    it('should not throw if SDK not initialized', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      await expect(telemetry.shutdown()).resolves.not.toThrow()
+      expect(mockGetNodeAutoInstrumentations).toHaveBeenCalledWith({
+        '@opentelemetry/instrumentation-fs': {
+          enabled: false,
+        },
+      })
+      expect(mockHttpInstrumentation).toHaveBeenCalled()
     })
   })
 
-  describe('singleton export', () => {
-    it('should export singleton instance', async () => {
-      const otelModule = await import('../../src/utils/otel')
+  describe('OTLP configuration via environment', () => {
+    it('should use OTEL_EXPORTER_OTLP_ENDPOINT for traces', async () => {
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://trace.example.com/v1/traces'
 
-      expect(otelModule.default).toBeDefined()
-    })
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-    it('should export RecoverySkyTelemetry class', async () => {
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'otlp',
+        },
+      })
 
-      expect(RecoverySkyTelemetry).toBeDefined()
-      expect(typeof RecoverySkyTelemetry).toBe('function')
-    })
-  })
-
-  describe('auto-initialization', () => {
-    it('should not auto-initialize in test environment', async () => {
-      process.env.NODE_ENV = 'test'
-      vi.clearAllMocks()
-
-      await import('../../src/utils/otel')
-
-      // SDK should not be called during module import in test mode
-      expect(mockSDKStart).not.toHaveBeenCalled()
-    })
-
-    it('should not auto-initialize when disabled', async () => {
-      process.env.OTEL_SDK_DISABLED = 'true'
-      vi.clearAllMocks()
-
-      await import('../../src/utils/otel')
-
-      expect(mockSDKStart).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('exporter headers', () => {
-    it('should parse OTEL_EXPORTER_OTLP_HEADERS from environment', async () => {
-      process.env.OTEL_TRACE_EXPORTER = 'otlp'
-      process.env.OTEL_EXPORTER_OTLP_HEADERS = '{"Authorization":"Bearer token123","X-Custom":"value"}'
-
-      const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http')
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
-
-      telemetry.init()
-
-      const exporterCall = vi.mocked(OTLPTraceExporter).mock.calls[0]
-      expect(exporterCall[0]).toHaveProperty('headers')
-      expect(exporterCall[0].headers).toMatchObject({
-        Authorization: 'Bearer token123',
-        'X-Custom': 'value',
+      expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
+        url: 'https://trace.example.com/v1/traces',
+        headers: {},
       })
     })
 
-    it('should handle invalid OTEL_EXPORTER_OTLP_HEADERS JSON', async () => {
+    it('should parse OTEL_EXPORTER_OTLP_HEADERS', async () => {
+      process.env.OTEL_EXPORTER_OTLP_HEADERS = '{"Authorization":"Bearer token123"}'
+
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'otlp',
+        },
+      })
+
+      expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
+        url: 'http://localhost:4318/v1/traces',
+        headers: {
+          Authorization: 'Bearer token123',
+        },
+      })
+    })
+
+    it('should handle invalid OTLP headers JSON', async () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      process.env.OTEL_TRACE_EXPORTER = 'otlp'
-      process.env.OTEL_EXPORTER_OTLP_HEADERS = 'not-valid-json'
+      process.env.OTEL_EXPORTER_OTLP_HEADERS = 'invalid-json'
 
-      const { RecoverySkyTelemetry } = await import('../../src/utils/otel')
-      const telemetry = new RecoverySkyTelemetry()
+      const { createTelemetry } = await import('../../src/utils/otel')
 
-      telemetry.init()
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'otlp',
+        },
+      })
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'Invalid OTEL_EXPORTER_OTLP_HEADERS JSON:',
-        'not-valid-json'
+        'invalid-json'
       )
+      expect(mockOTLPTraceExporter).toHaveBeenCalledWith({
+        url: 'http://localhost:4318/v1/traces',
+        headers: {},
+      })
+
       consoleSpy.mockRestore()
     })
+
+    it('should use OTEL_EXPORTER_OTLP_METRICS_ENDPOINT for metrics', async () => {
+      process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = 'https://metrics.example.com/v1/metrics'
+
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        metrics: {
+          exporters: ['otlp'],
+        },
+      })
+
+      expect(mockOTLPMetricExporter).toHaveBeenCalledWith({
+        url: 'https://metrics.example.com/v1/metrics',
+      })
+    })
+
+    it('should use JAEGER_ENDPOINT for Jaeger exporter', async () => {
+      process.env.JAEGER_ENDPOINT = 'http://jaeger.local:14268/api/traces'
+
+      const { createTelemetry } = await import('../../src/utils/otel')
+
+      createTelemetry({
+        serviceName: 'test-service',
+        tracing: {
+          exporter: 'jaeger',
+        },
+      })
+
+      expect(mockJaegerExporter).toHaveBeenCalledWith({
+        endpoint: 'http://jaeger.local:14268/api/traces',
+      })
+    })
   })
+})
+
+describe('withSpan utility', () => {
+  it('should export withSpan utility function', async () => {
+    const { withSpan } = await import('../../src/utils/otel')
+
+    expect(withSpan).toBeDefined()
+    expect(typeof withSpan).toBe('function')
+  })
+
+  // NOTE: Full withSpan functionality is tested in integration tests
+  // because it requires active OpenTelemetry context and spans which
+  // are difficult to mock correctly in unit tests
 })
