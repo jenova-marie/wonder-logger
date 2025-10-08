@@ -15,10 +15,12 @@
     "build": "tsc",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:unit:coverage": "vitest run --coverage tests/unit"
+    "test:unit:coverage": "vitest run --coverage tests/unit",
+    "test:integration:coverage": "vitest run --coverage tests/integration"
   },
   "keywords": [],
   "author": "",

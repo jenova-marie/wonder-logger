@@ -9,6 +9,7 @@ dist/
 
 # Testing
 coverage/
+tests/integration/logs/
 
 # Misc
 .DS_Store
