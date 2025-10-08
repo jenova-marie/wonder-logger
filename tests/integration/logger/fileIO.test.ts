@@ -3,14 +3,9 @@
  *
  * Tests actual file writing, rotation scenarios, and persistence
  *
- * NOTE: These tests are currently commented out because pino's file transport uses
- * background worker threads that continue async operations after test completion.
- * When afterEach() cleans up test directories, these worker threads throw ENOENT errors
- * trying to write to non-existent directories. While the tests pass (exit code 0),
- * vitest reports these as "unhandled errors" which pollutes test output.
- *
- * The file transport functionality is still tested in unit tests with mocks.
- * To re-enable these tests, uncomment the describe.skip below and change to describe.
+ * NOTE: These tests use async file writes via pino.destination (SonicBoom streams).
+ * The afterEach() hook includes a delay to ensure all async writes complete before
+ * directory cleanup, preventing ENOENT errors from in-flight write operations.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -18,7 +13,7 @@ import { createLogger, createFileTransport } from '../../../src/utils/logger'
 import { existsSync, readFileSync, rmSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-describe.skip('Logger Integration - File I/O', () => {
+describe('Logger Integration - File I/O', () => {
   const baseLogsDir = join(process.cwd(), 'tests', 'integration', 'logs')
   let testLogsDir: string
 
@@ -28,7 +23,10 @@ describe.skip('Logger Integration - File I/O', () => {
     mkdirSync(testLogsDir, { recursive: true })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Wait for async file writes to complete before cleanup
+    await new Promise(resolve => setTimeout(resolve, 600))
+
     // Clean up test logs
     if (existsSync(testLogsDir)) {
       try {
@@ -39,7 +37,7 @@ describe.skip('Logger Integration - File I/O', () => {
     }
   })
 
-  it('should create log file and write logs', (done) => {
+  it('should create log file and write logs', async () => {
     const testFile = join(testLogsDir, 'app.log')
 
     const logger = createLogger({
@@ -57,16 +55,15 @@ describe.skip('Logger Integration - File I/O', () => {
     logger.info({ event: 'ready' }, 'Application ready')
 
     // Wait for file write
-    setTimeout(() => {
-      expect(existsSync(testFile)).toBe(true)
-      const content = readFileSync(testFile, 'utf-8')
-      expect(content).toContain('Application started')
-      expect(content).toContain('Application ready')
-      done()
-    }, 200)
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    expect(existsSync(testFile)).toBe(true)
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toContain('Application started')
+    expect(content).toContain('Application ready')
   })
 
-  it('should handle multiple files with different log levels', (done) => {
+  it('should handle multiple files with different log levels', async () => {
     const infoFile = join(testLogsDir, 'info.log')
     const errorFile = join(testLogsDir, 'error.log')
 
@@ -91,26 +88,25 @@ describe.skip('Logger Integration - File I/O', () => {
     logger.warn('Warning message')
     logger.error('Error message')
 
-    setTimeout(() => {
-      expect(existsSync(infoFile)).toBe(true)
-      expect(existsSync(errorFile)).toBe(true)
+    await new Promise(resolve => setTimeout(resolve, 200))
 
-      const infoContent = readFileSync(infoFile, 'utf-8')
-      const errorContent = readFileSync(errorFile, 'utf-8')
+    expect(existsSync(infoFile)).toBe(true)
+    expect(existsSync(errorFile)).toBe(true)
 
-      // Info file should have all messages
-      expect(infoContent).toContain('Info message')
-      expect(infoContent).toContain('Warning message')
-      expect(infoContent).toContain('Error message')
+    const infoContent = readFileSync(infoFile, 'utf-8')
+    const errorContent = readFileSync(errorFile, 'utf-8')
 
-      // Error file should only have error messages
-      expect(errorContent).toContain('Error message')
-      expect(errorContent).not.toContain('Info message')
-      done()
-    }, 200)
+    // Info file should have all messages
+    expect(infoContent).toContain('Info message')
+    expect(infoContent).toContain('Warning message')
+    expect(infoContent).toContain('Error message')
+
+    // Error file should only have error messages
+    expect(errorContent).toContain('Error message')
+    expect(errorContent).not.toContain('Info message')
   })
 
-  it('should persist logs across multiple write operations', (done) => {
+  it('should persist logs across multiple write operations', async () => {
     const testFile = join(testLogsDir, 'persistent.log')
 
     const logger = createLogger({
@@ -131,26 +127,25 @@ describe.skip('Logger Integration - File I/O', () => {
       }
     }
 
-    setTimeout(() => {
-      const content = readFileSync(testFile, 'utf-8')
-      const lines = content.trim().split('\n')
+    await new Promise(resolve => setTimeout(resolve, 300))
 
-      // Should have 50 log lines
-      expect(lines.length).toBeGreaterThanOrEqual(50)
+    const content = readFileSync(testFile, 'utf-8')
+    const lines = content.trim().split('\n')
 
-      // Check first and last entries
-      const firstLog = JSON.parse(lines[0])
-      const lastLog = JSON.parse(lines[lines.length - 1])
+    // Should have 50 log lines
+    expect(lines.length).toBeGreaterThanOrEqual(50)
 
-      expect(firstLog.batch).toBe(0)
-      expect(firstLog.index).toBe(0)
-      expect(lastLog.batch).toBe(4)
-      expect(lastLog.index).toBe(9)
-      done()
-    }, 300)
+    // Check first and last entries
+    const firstLog = JSON.parse(lines[0])
+    const lastLog = JSON.parse(lines[lines.length - 1])
+
+    expect(firstLog.batch).toBe(0)
+    expect(firstLog.index).toBe(0)
+    expect(lastLog.batch).toBe(4)
+    expect(lastLog.index).toBe(9)
   })
 
-  it('should handle JSON parsing of written logs', (done) => {
+  it('should handle JSON parsing of written logs', async () => {
     const testFile = join(testLogsDir, 'parsable.log')
 
     const logger = createLogger({
@@ -167,27 +162,26 @@ describe.skip('Logger Integration - File I/O', () => {
     logger.info({ userId: 123, action: 'login' }, 'User logged in')
     logger.info({ userId: 456, action: 'logout' }, 'User logged out')
 
-    setTimeout(() => {
-      const content = readFileSync(testFile, 'utf-8')
-      const lines = content.trim().split('\n')
+    await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Every line should be valid JSON
-      lines.forEach((line) => {
-        expect(() => JSON.parse(line)).not.toThrow()
-      })
+    const content = readFileSync(testFile, 'utf-8')
+    const lines = content.trim().split('\n')
 
-      const log1 = JSON.parse(lines[0])
-      const log2 = JSON.parse(lines[1])
+    // Every line should be valid JSON
+    lines.forEach((line) => {
+      expect(() => JSON.parse(line)).not.toThrow()
+    })
 
-      expect(log1.userId).toBe(123)
-      expect(log1.action).toBe('login')
-      expect(log2.userId).toBe(456)
-      expect(log2.action).toBe('logout')
-      done()
-    }, 200)
+    const log1 = JSON.parse(lines[0])
+    const log2 = JSON.parse(lines[1])
+
+    expect(log1.userId).toBe(123)
+    expect(log1.action).toBe('login')
+    expect(log2.userId).toBe(456)
+    expect(log2.action).toBe('logout')
   })
 
-  it('should handle high-volume writes to file', (done) => {
+  it('should handle high-volume writes to file', async () => {
     const testFile = join(testLogsDir, 'high-volume.log')
 
     const logger = createLogger({
@@ -206,14 +200,13 @@ describe.skip('Logger Integration - File I/O', () => {
       logger.info({ index: i, data: `Data for entry ${i}` }, `Log entry ${i}`)
     }
 
-    setTimeout(() => {
-      expect(existsSync(testFile)).toBe(true)
-      const content = readFileSync(testFile, 'utf-8')
-      const lines = content.trim().split('\n').filter((l) => l.length > 0)
+    await new Promise(resolve => setTimeout(resolve, 500))
 
-      expect(lines.length).toBeGreaterThanOrEqual(1000)
-      done()
-    }, 500)
+    expect(existsSync(testFile)).toBe(true)
+    const content = readFileSync(testFile, 'utf-8')
+    const lines = content.trim().split('\n').filter((l) => l.length > 0)
+
+    expect(lines.length).toBeGreaterThanOrEqual(1000)
   })
 
   it('should handle errors in file paths gracefully', () => {
@@ -232,7 +225,7 @@ describe.skip('Logger Integration - File I/O', () => {
     }).not.toThrow()
   })
 
-  it('should create nested directory structure if needed', (done) => {
+  it('should create nested directory structure if needed', async () => {
     const nestedDir = join(testLogsDir, 'nested', 'deep', 'structure')
     const testFile = join(nestedDir, 'nested.log')
 
@@ -254,15 +247,14 @@ describe.skip('Logger Integration - File I/O', () => {
 
     logger.info('Log in nested directory')
 
-    setTimeout(() => {
-      expect(existsSync(testFile)).toBe(true)
-      const content = readFileSync(testFile, 'utf-8')
-      expect(content).toContain('Log in nested directory')
-      done()
-    }, 200)
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    expect(existsSync(testFile)).toBe(true)
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toContain('Log in nested directory')
   })
 
-  it('should write logs with consistent timestamps', (done) => {
+  it('should write logs with consistent timestamps', async () => {
     const testFile = join(testLogsDir, 'timestamps.log')
 
     const logger = createLogger({
@@ -282,16 +274,15 @@ describe.skip('Logger Integration - File I/O', () => {
     logger.info('Third log')
     const endTime = Date.now()
 
-    setTimeout(() => {
-      const content = readFileSync(testFile, 'utf-8')
-      const lines = content.trim().split('\n')
+    await new Promise(resolve => setTimeout(resolve, 200))
 
-      lines.forEach((line) => {
-        const log = JSON.parse(line)
-        expect(log.time).toBeGreaterThanOrEqual(startTime)
-        expect(log.time).toBeLessThanOrEqual(endTime)
-      })
-      done()
-    }, 200)
+    const content = readFileSync(testFile, 'utf-8')
+    const lines = content.trim().split('\n')
+
+    lines.forEach((line) => {
+      const log = JSON.parse(line)
+      expect(log.time).toBeGreaterThanOrEqual(startTime)
+      expect(log.time).toBeLessThanOrEqual(endTime)
+    })
   })
 })

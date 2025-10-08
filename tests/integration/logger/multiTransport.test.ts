@@ -39,9 +39,12 @@ describe('Logger Integration - Multiple Transports', () => {
     mkdirSync(testLogsDir, { recursive: true })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     capturedConsoleLogs = []
     capturedErrorLogs = []
+
+    // Wait for async file writes to complete before cleanup
+    await new Promise(resolve => setTimeout(resolve, 200))
 
     // Clean up test logs
     if (existsSync(testLogsDir)) {
@@ -120,10 +123,7 @@ describe('Logger Integration - Multiple Transports', () => {
     expect(errorLog.level).toBe(50) // error
   })
 
-  // NOTE: This test is commented out because pino's file transport uses background
-  // worker threads that cause ENOENT errors when directories are cleaned up after tests.
-  // File transport functionality is tested in unit tests and fileIO.test.ts (when enabled).
-  it.skip('should write to file transport and console simultaneously', () => {
+  it('should write to file transport and console simultaneously', async () => {
     const testFile = join(testLogsDir, 'test.log')
 
     const logger = createLogger({
@@ -148,18 +148,18 @@ describe('Logger Integration - Multiple Transports', () => {
     expect(capturedConsoleLogs).toHaveLength(2)
 
     // Wait a bit for file write
-    setTimeout(() => {
-      // Check file
-      expect(existsSync(testFile)).toBe(true)
-      const fileContent = readFileSync(testFile, 'utf-8')
-      const lines = fileContent.trim().split('\n')
-      expect(lines.length).toBeGreaterThanOrEqual(2)
+    await new Promise(resolve => setTimeout(resolve, 100))
 
-      const log1 = JSON.parse(lines[0])
-      const log2 = JSON.parse(lines[1])
-      expect(log1.event).toBe('startup')
-      expect(log2.event).toBe('request')
-    }, 100)
+    // Check file
+    expect(existsSync(testFile)).toBe(true)
+    const fileContent = readFileSync(testFile, 'utf-8')
+    const lines = fileContent.trim().split('\n')
+    expect(lines.length).toBeGreaterThanOrEqual(2)
+
+    const log1 = JSON.parse(lines[0])
+    const log2 = JSON.parse(lines[1])
+    expect(log1.event).toBe('startup')
+    expect(log2.event).toBe('request')
   })
 
   it('should handle three or more transports', () => {
