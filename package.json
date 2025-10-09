@@ -1,6 +1,6 @@
 {
   "name": "recoverysky-server",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Common Node.js/TypeScript/ESM modules for RecoverySky server projects",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,11 +22,41 @@
     "test:coverage": "vitest run --coverage",
     "test:unit:coverage": "vitest run --coverage tests/unit",
     "test:integration:coverage": "vitest run --coverage tests/integration",
-    "test:e2e:coverage": "vitest run --coverage tests/e2e"
+    "test:e2e:coverage": "vitest run --coverage tests/e2e",
+    "version:bump": "bash scripts/version.sh",
+    "prepublishOnly": "pnpm test:unit && pnpm test:integration && pnpm build",
+    "publish:npm": "bash scripts/publish.sh",
+    "publish:dry-run": "npm pack --dry-run"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "opentelemetry",
+    "otel",
+    "logging",
+    "pino",
+    "tracing",
+    "metrics",
+    "observability",
+    "telemetry",
+    "loki",
+    "tempo",
+    "prometheus",
+    "grafana"
+  ],
+  "author": "RecoverySky Infrastructure Team",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/recoverysky-org/recoverysky-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/recoverysky-org/recoverysky-server/issues"
+  },
+  "homepage": "https://github.com/recoverysky-org/recoverysky-server#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "packageManager": "pnpm@10.14.0",
   "devDependencies": {
     "@types/node": "^24.7.0",
