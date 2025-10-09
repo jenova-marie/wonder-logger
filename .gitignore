@@ -23,3 +23,6 @@ tests/integration/logs/
 *.swp
 *.swo
 *~
+
+# Local data files
+data/
