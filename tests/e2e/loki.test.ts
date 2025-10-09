@@ -114,10 +114,10 @@ describe('E2E Integration - Loki', () => {
       const endNano = String((Date.now() + 30000) * 1000000)
 
       // Query Loki for our test log
-      // Note: service_name is "otel-collector" due to resource processor overwrite
+      // Note: service_name is "e2e-loki-test" (collector uses action: insert, doesn't override SDK)
       // testId is not a Loki label - use text filter to search log message
       console.log('🔍 Querying Loki...')
-      const lokiQuery = `{service_name="otel-collector"} |= "${testId}"`
+      const lokiQuery = `{service_name="e2e-loki-test"} |= "${testId}"`
 
       const response = await queryLoki(lokiQuery, startNano, endNano)
 
@@ -151,7 +151,7 @@ describe('E2E Integration - Loki', () => {
       // Loki stores structured data in labels, not in the log line
       expect(stream.stream.testId).toBe(testId)
       expect(stream.stream.eventType).toBe('e2e-test')
-      expect(stream.stream.service_name).toBe('otel-collector')
+      expect(stream.stream.service_name).toBe('e2e-loki-test')
     },
     TEST_TIMEOUT
   )
@@ -174,7 +174,7 @@ describe('E2E Integration - Loki', () => {
       const endNano = String((Date.now() + 30000) * 1000000)
 
       // Query for batch by text filter (batchId is not a Loki label)
-      const lokiQuery = `{service_name="otel-collector"} |= "${batchId}"`
+      const lokiQuery = `{service_name="e2e-loki-test"} |= "${batchId}"`
       const response = await queryLoki(lokiQuery, startNano, endNano)
 
       expect(response.status).toBe('success')
@@ -214,15 +214,15 @@ describe('E2E Integration - Loki', () => {
       const endNano = String((Date.now() + 30000) * 1000000)
 
       // Query by text filter (testId is not a Loki label)
-      const lokiQuery = `{service_name="otel-collector"} |= "${testId}"`
+      const lokiQuery = `{service_name="e2e-loki-test"} |= "${testId}"`
       const response = await queryLoki(lokiQuery, startNano, endNano)
 
       expect(response.data.result).toHaveLength(1)
 
       const stream = response.data.result[0]
       // Verify stream labels contain service metadata
-      // Note: Resource processor overwrites service.name to "otel-collector"
-      expect(stream.stream).toHaveProperty('service_name', 'otel-collector')
+      // Note: Collector uses action: insert, so SDK's service.name is preserved
+      expect(stream.stream).toHaveProperty('service_name', 'e2e-loki-test')
       expect(stream.stream).toHaveProperty('testId', testId)
       expect(stream.stream).toHaveProperty('eventType', 'metadata-test')
 

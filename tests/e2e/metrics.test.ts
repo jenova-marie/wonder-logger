@@ -453,7 +453,9 @@ describe("E2E Integration - Prometheus (Push/Remote Write Model)", () => {
       const metric = result.data.result[0];
       expect(metric.metric.test_id).toBe(testId);
       expect(metric.metric.custom_label).toBe("remote_write_test");
-      expect(metric.metric.environment).toBe("e2e");
+      // Note: Collector's resource processor uses action: upsert for deployment.environment
+      // It overrides SDK value with ${env:ENV} which is "Dev"
+      expect(metric.metric.environment).toBe("Dev");
     },
     TEST_TIMEOUT,
   );

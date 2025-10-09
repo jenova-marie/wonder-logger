@@ -363,15 +363,17 @@ describe('E2E Integration - Tempo', () => {
       const environment = resourceAttrs.find((a) => a.key === 'deployment.environment')
 
       expect(serviceName).toBeDefined()
-      // Note: OTEL collector's resource processor overwrites service.name to "otel-collector"
-      expect(serviceName!.value.stringValue).toBe('otel-collector')
+      // Note: OTEL collector's resource processor uses action: insert (doesn't override SDK)
+      // So SDK's service.name "e2e-tempo-test" is preserved
+      expect(serviceName!.value.stringValue).toBe('e2e-tempo-test')
 
       expect(serviceVersion).toBeDefined()
-      // Version is also set by the resource processor
-      expect(serviceVersion!.value.stringValue).toBeTruthy()
+      // Note: Collector's resource processor uses action: upsert for service.version
+      // It overrides SDK value with collector version
+      expect(serviceVersion!.value.stringValue).toBe('0.128.0')
 
       expect(environment).toBeDefined()
-      // Environment gets capitalized to "Dev"
+      // Environment uses action: upsert, so collector overrides with ${env:ENV}
       expect(environment!.value.stringValue).toBeTruthy()
     },
     TEST_TIMEOUT
