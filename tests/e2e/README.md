@@ -162,54 +162,88 @@ const serviceName = getResourceAttribute(trace, 'service.name')
 
 ## Current Status
 
-⚠️ **Tests are currently skipped** (using `describe.skip`)
+✅ **All E2E tests passing** (19 tests across 3 observability backends)
 
-The E2E tests are disabled by default because they require external infrastructure (Loki, Tempo, OTEL Collector) that may not be available in all environments.
+The E2E tests validate the complete production observability pipeline:
+- **Loki** (3 tests) - Log aggregation and querying
+- **Tempo** (4 tests) - Distributed tracing with tail sampling
+- **Prometheus** (6 tests) - Metrics collection (pull + push models)
+- **Local OTEL** (6 tests) - Collector health and endpoint validation
 
-### Enabling Tests
+### Test Results
 
-To enable E2E tests:
+```
+✓ tests/e2e/loki.test.ts (3 tests)
+  ✓ should send logs to OTEL collector and appear in Loki
+  ✓ should handle multiple logs in sequence
+  ✓ should include service metadata in logs
 
-1. **Ensure infrastructure is running:**
-   ```bash
-   # Verify Loki is accessible
-   curl https://loki.rso/ready
+✓ tests/e2e/tempo.test.ts (4 tests)
+  ✓ should send traces to OTEL collector and appear in Tempo
+  ✓ should record span status and errors
+  ✓ should create nested spans
+  ✓ should include service resource attributes
 
-   # Verify Tempo is accessible
-   curl https://tempo.rso/ready
-   ```
+✓ tests/e2e/metrics.test.ts (6 tests)
+  ✓ Pull/Scrape Model (3 tests) - Prometheus exporter
+  ✓ Push/Remote Write Model (3 tests) - OTLP → Prometheus
 
-2. **Remove `skip` from test files:**
-   ```typescript
-   // Change this:
-   describe.skip('E2E Integration - Loki', () => {
+✓ tests/e2e/local-otel.test.ts (6 tests)
+  ✓ Collector health and zpages
+  ✓ Logs and traces transport
+  ✓ OTLP endpoint verification
+```
 
-   // To this:
-   describe('E2E Integration - Loki', () => {
-   ```
+### Running E2E Tests
 
-3. **Run tests:**
-   ```bash
-   pnpm test:e2e
-   ```
+```bash
+# Set TLS env var for self-signed certs
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+
+# Run all E2E tests
+pnpm test:e2e
+
+# Run specific test suite
+pnpm test tests/e2e/loki.test.ts
+pnpm test tests/e2e/tempo.test.ts
+pnpm test tests/e2e/metrics.test.ts
+
+# With verbose output
+NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm test tests/e2e/tempo.test.ts --reporter=verbose
+```
 
 ## Timing Considerations
 
 ### Ingestion Delays
 
-Telemetry data flows through multiple systems, causing delays:
+Telemetry data flows through multiple systems with measured delays:
 
-1. **SDK → OTEL Collector:** < 100ms (batching)
-2. **OTEL Collector → Loki/Tempo:** 1-2 seconds (batch export)
-3. **Loki/Tempo Indexing:** 1-3 seconds
+1. **SDK → OTEL Collector:** 100ms (batch flush interval)
+2. **OTEL Collector → Backend:**
+   - **Loki:** 10s batch window (Loki ingestion delay)
+   - **Tempo:** 10s tail sampling decision + ingestion
+   - **Prometheus:** 15s remote write interval
+3. **Backend Indexing:** 2-5 seconds
 
-**Total expected delay:** 3-5 seconds
+**Expected wait times:**
+- **Loki logs:** 12 seconds (batch + indexing)
+- **Tempo traces:** 20 seconds (tail sampling + ingestion)
+- **Prometheus metrics:** 30 seconds (remote write + scrape)
 
 ### Test Timeouts
 
-- **Individual tests:** 10-15 seconds
-- **Includes:** Execution time + ingestion delay + query time
-- **Retry logic:** Built into helper functions
+- **Loki tests:** 30 seconds
+- **Tempo tests:** 40 seconds
+- **Metrics tests:** 60 seconds (pull) / 120 seconds (push)
+- **Includes:** SDK flush + pipeline delays + query time
+
+### OTEL Collector Configuration
+
+The production OTEL collector uses:
+- **Batch processor:** 100ms timeout, 1024 batch size
+- **Tail sampling:** 10s decision wait, 100% sample rate for test traces
+- **Resource processor:** Adds service metadata with `action: insert` (preserves SDK values)
+- **Transform processors:** Promotes resource attributes to labels for indexing
 
 ## API Reference
 

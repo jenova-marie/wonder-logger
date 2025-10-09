@@ -86,30 +86,41 @@ Integration tests achieve:
 - **Logger core**: 84.84%
 - **Console transport**: 53.57%
 - **Trace context**: 53.33%
+- **File I/O**: Full coverage (8 tests)
 
 Integration tests focus on real behavior rather than code coverage, testing:
 - Multiple transport combinations
 - OpenTelemetry integration
 - Error handling edge cases
-- High-volume scenarios
+- High-volume scenarios (1000+ logs)
+- File system persistence
 
-## Skipped Tests
+## Test Results
 
-### File I/O Tests (fileIO.test.ts - 8 tests skipped)
+All integration tests are passing:
 
-The file I/O integration tests are currently skipped because pino's file transport uses background worker threads that continue async operations after test completion. When `afterEach()` cleans up test directories, these worker threads throw ENOENT errors trying to write to non-existent directories.
+```
+✓ tests/integration/logger/basic.test.ts (7 tests)
+✓ tests/integration/logger/errorHandling.test.ts (14 tests)
+✓ tests/integration/logger/traceContext.test.ts (7 tests)
+✓ tests/integration/logger/multiTransport.test.ts (6 tests)
+✓ tests/integration/logger/fileIO.test.ts (8 tests)
+✓ tests/integration/otel-metrics.test.ts (21 tests)
 
-While the tests themselves pass (exit code 0), vitest reports these as "unhandled errors" which pollutes test output with 10+ error messages.
+Total: 63 tests passing
+```
 
-**Workaround**: File transport functionality is still thoroughly tested in:
-- Unit tests with mocks (`tests/unit/logger/fileTransport.test.ts`)
-- Manual testing in development
+### File I/O Tests
 
-**To re-enable**: Change `describe.skip` to `describe` in `fileIO.test.ts`. Tests will pass but with error warnings.
-
-### File + Console Test (multiTransport.test.ts - 1 test skipped)
-
-One test combining file and console transports is skipped for the same reason as above.
+The file I/O integration tests are fully enabled and validate:
+- File creation and writing (JSON output)
+- Multiple files with different log levels
+- Persistence across multiple operations (50+ entries)
+- JSON parsing of written logs
+- High-volume writes (1000 entries)
+- Error handling in file paths
+- Nested directory creation
+- Consistent timestamps across async operations
 
 ## Configuration
 

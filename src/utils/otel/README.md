@@ -104,6 +104,19 @@ interface MetricsOptions {
   enabled?: boolean             // Default: true
   exporters?: ('prometheus' | 'otlp')[]  // Default: ['prometheus']
   port?: number                 // Default: 9464 (Prometheus endpoint)
+  exportIntervalMillis?: number // Default: 60000 (OTLP export interval)
+}
+```
+
+### TelemetrySDK
+
+The `createTelemetry()` function returns a wrapper around `NodeSDK` with helper methods:
+
+```typescript
+interface TelemetrySDK {
+  start: () => void                    // Start SDK (called automatically)
+  shutdown: () => Promise<void>        // Graceful shutdown with flush
+  forceFlush: () => Promise<void>      // Force flush pending telemetry
 }
 ```
 
@@ -267,6 +280,36 @@ const sdk = createTelemetry({ serviceName: 'my-api' })
 await sdk.shutdown()
 ```
 
+### Force Flush (Testing)
+
+The SDK wrapper provides a `forceFlush()` method to immediately export pending telemetry. This is useful in testing when you need to ensure metrics/traces are sent before making assertions:
+
+```typescript
+import { createTelemetry } from './utils/otel'
+import { metrics } from '@opentelemetry/api'
+
+const sdk = createTelemetry({
+  serviceName: 'test-service',
+  metrics: {
+    exporters: ['otlp'],
+    exportIntervalMillis: 100  // Fast export for testing
+  }
+})
+
+// Record a metric
+const meter = metrics.getMeter('test')
+const counter = meter.createCounter('test_counter')
+counter.add(1, { test_id: '123' })
+
+// Force immediate export (bypass export interval)
+await sdk.forceFlush()
+
+// Now safe to query the backend
+const result = await queryPrometheus('test_counter{test_id="123"}')
+```
+
+**Note:** `forceFlush()` is primarily for testing. In production, the SDK exports automatically based on the configured intervals.
+
 ## Auto-Instrumentation
 
 The following libraries are automatically instrumented:
@@ -363,11 +406,17 @@ await telemetry.withSpan('operation', {}, async () => {
 
 ### New (Modular Factory)
 ```typescript
-import { createTelemetry, withSpan } from './utils/otel'
+import { createTelemetry, withSpan, TelemetrySDK } from './utils/otel'
 
-const sdk = createTelemetry({
+// Returns SDK wrapper, not raw NodeSDK
+const sdk: TelemetrySDK = createTelemetry({
   serviceName: 'my-api'
 })
+
+// SDK methods
+await sdk.forceFlush()   // Force flush (testing)
+await sdk.shutdown()     // Graceful shutdown
+sdk.start()              // Start (called automatically)
 
 // Tracer and meter available via @opentelemetry/api
 import { trace, metrics } from '@opentelemetry/api'
