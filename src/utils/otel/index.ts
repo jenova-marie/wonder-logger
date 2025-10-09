@@ -15,7 +15,7 @@ import { createPrometheusExporter } from './exporters/metrics/prometheus'
 import { createOtlpMetricsExporter } from './exporters/metrics/otlp'
 import { createAutoInstrumentations } from './instrumentations/auto'
 import { setupGracefulShutdown } from './utils/gracefulShutdown'
-import type { TelemetryOptions } from './types'
+import type { TelemetryOptions, TelemetrySDK } from './types'
 
 /**
  * Creates and initializes OpenTelemetry instrumentation
@@ -53,7 +53,7 @@ import type { TelemetryOptions } from './types'
  * })
  * ```
  */
-export function createTelemetry(options: TelemetryOptions): NodeSDK {
+export function createTelemetry(options: TelemetryOptions): TelemetrySDK {
   // Build resource with service metadata
   const resource = createResource({
     serviceName: options.serviceName,
@@ -140,4 +140,4 @@ export function createTelemetry(options: TelemetryOptions): NodeSDK {
 
 // Re-export utilities and types
 export { withSpan } from './utils/withSpan'
-export type { TelemetryOptions, TracingOptions, MetricsOptions } from './types'
+export type { TelemetryOptions, TracingOptions, MetricsOptions, TelemetrySDK } from './types'

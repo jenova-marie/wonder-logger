@@ -65,3 +65,15 @@ export interface AutoInstrumentationOptions {
   /** Whether to include HTTP request/response hooks (defaults to false) */
   includeHttpHooks?: boolean
 }
+
+/**
+ * SDK wrapper with helper methods
+ */
+export interface TelemetrySDK {
+  /** Start the SDK */
+  start: () => void
+  /** Shutdown the SDK and flush all pending telemetry */
+  shutdown: () => Promise<void>
+  /** Force flush all pending telemetry data (useful for testing) */
+  forceFlush: () => Promise<void>
+}
