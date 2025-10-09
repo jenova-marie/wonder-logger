@@ -1,8 +1,11 @@
 {
-  "name": "recoverysky-server",
+  "name": "@recoverysky/server-utils",
   "version": "0.0.1",
   "description": "Common Node.js/TypeScript/ESM modules for RecoverySky server projects",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
