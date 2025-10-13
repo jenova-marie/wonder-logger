@@ -73,6 +73,72 @@ const sdk = createTelemetry({
 })
 ```
 
+### Config-Driven Setup
+
+OpenTelemetry can be configured using a YAML configuration file:
+
+**1. Create `wonder-logger.yaml` in your project root:**
+
+```yaml
+service:
+  name: ${SERVICE_NAME:-my-api}
+  version: ${SERVICE_VERSION:-1.0.0}
+  environment: ${NODE_ENV:-production}
+
+otel:
+  enabled: true
+  tracing:
+    enabled: true
+    exporter: ${OTEL_TRACE_EXPORTER:-otlp}
+    endpoint: ${OTEL_TRACES_ENDPOINT:-http://localhost:4318/v1/traces}
+    sampleRate: 1.0
+  metrics:
+    enabled: true
+    exporters:
+      - type: prometheus
+        port: ${PROMETHEUS_PORT:-9464}
+      - type: otlp
+        endpoint: ${OTEL_METRICS_ENDPOINT:-http://localhost:4318/v1/metrics}
+        exportIntervalMillis: 60000
+  instrumentation:
+    auto: true
+    http: true
+```
+
+**2. Load configuration in your application:**
+
+```typescript
+import { createTelemetryFromConfig } from './utils/otel'
+
+// Load from default location (wonder-logger.yaml)
+const sdk = createTelemetryFromConfig()
+
+// With custom config path
+const sdk = createTelemetryFromConfig({
+  configPath: './config/production.yaml'
+})
+
+// With runtime overrides
+const sdk = createTelemetryFromConfig({
+  overrides: {
+    serviceName: 'override-service',
+    environment: 'staging',
+    tracing: {
+      sampleRate: 0.1  // Override sampling rate
+    }
+  }
+})
+```
+
+**Benefits:**
+- Environment-specific configuration files
+- Environment variable interpolation
+- No code changes for config updates
+- Validation with Zod schemas
+- Centralized configuration with logger
+
+See [Configuration Guide](../config/README.md) for complete documentation.
+
 ## Configuration Options
 
 ### TelemetryOptions
