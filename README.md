@@ -196,6 +196,131 @@ service:
 
 See [Configuration Guide](./src/utils/config/README.md) for complete documentation.
 
+## Configuration Approaches
+
+⭐Wonder Logger⭐ supports two complementary configuration approaches that work together seamlessly:
+
+### 1. Programmatic API (Direct Code Configuration)
+
+**Best for:** Fine-grained control, dynamic configuration, testing, and programmatic use cases.
+
+```typescript
+import { createLogger, createTelemetry } from 'wonder-logger'
+
+// Direct configuration in code
+const sdk = createTelemetry({
+  serviceName: 'my-api',
+  serviceVersion: '1.0.0',
+  environment: process.env.NODE_ENV || 'development',
+  tracing: { exporter: 'otlp' },
+  metrics: { exporters: ['prometheus'] }
+})
+
+const logger = createLogger({
+  name: 'my-api',
+  level: process.env.LOG_LEVEL || 'info',
+  transports: [
+    createConsoleTransport({ pretty: true }),
+    createOtelTransport({ serviceName: 'my-api' })
+  ]
+})
+```
+
+**How it works:**
+- Configuration values are set directly in TypeScript/JavaScript code
+- Environment variables are read using `process.env` directly
+- Full programmatic control with IDE autocompletion
+- Library internals may also read environment variables (e.g., `OTEL_EXPORTER_OTLP_ENDPOINT`)
+
+### 2. Config-Driven API (YAML Configuration)
+
+**Best for:** Centralized configuration, multiple environments, deployment flexibility, and declarative setup.
+
+```typescript
+import { createLoggerFromConfig, createTelemetryFromConfig } from 'wonder-logger'
+
+// Load configuration from YAML file
+const sdk = createTelemetryFromConfig()
+const logger = createLoggerFromConfig()
+
+// With overrides for specific needs
+const logger = createLoggerFromConfig({
+  overrides: { level: 'debug' }  // Runtime override
+})
+```
+
+**How it works:**
+- Configuration is defined in `wonder-logger.yaml` (see [wonder-logger.example.yaml](./wonder-logger.example.yaml))
+- YAML supports environment variable interpolation: `${VAR_NAME}` and `${VAR_NAME:-default}`
+- The YAML file reads from environment variables (`.env` files or system environment)
+- Enables environment-specific configs without code changes
+
+### Relationship with `.env` Files
+
+**Both approaches work with `.env` files**, but in different ways:
+
+#### Programmatic API + `.env`
+```typescript
+// .env file
+LOG_LEVEL=debug
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+
+// Your code reads .env directly
+import 'dotenv/config'  // Load .env into process.env
+
+const logger = createLogger({
+  level: process.env.LOG_LEVEL  // Read from process.env
+})
+```
+
+#### Config-Driven API + `.env`
+```yaml
+# wonder-logger.yaml interpolates .env variables
+logger:
+  level: ${LOG_LEVEL:-info}  # Reads LOG_LEVEL from process.env
+
+otel:
+  tracing:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
+```
+
+```typescript
+// Your code only needs to load config
+import { createLoggerFromConfig } from 'wonder-logger'
+
+const logger = createLoggerFromConfig()  // Reads YAML, which reads .env
+```
+
+### When to Use Each Approach
+
+| Use Case | Recommended Approach | Reason |
+|----------|---------------------|---------|
+| **Development/Testing** | Programmatic API | Direct control, easier debugging |
+| **Production Deployment** | Config-Driven API | Environment flexibility, no code changes |
+| **Library Development** | Programmatic API | Full control, testability |
+| **Multi-Environment Apps** | Config-Driven API | Separate YAML per environment |
+| **Dynamic Configuration** | Programmatic API | Runtime decision-making |
+| **Docker/Kubernetes** | Config-Driven API | ConfigMaps, environment injection |
+| **Local .env Development** | Either | Both support `.env` files |
+
+### Best Practices
+
+1. **Use `.env` for local development secrets** (ensure `.env` is in `.gitignore`)
+2. **Use YAML templates** (`wonder-logger.example.yaml`) for documentation
+3. **Combine both approaches** when needed:
+   ```typescript
+   // Load base config from YAML, override for specific cases
+   const logger = createLoggerFromConfig({
+     configPath: './config/production.yaml',
+     overrides: {
+       level: isDebugMode ? 'debug' : 'info'
+     }
+   })
+   ```
+4. **Environment variable precedence:**
+   - Config-driven: YAML interpolation → Runtime overrides
+   - Programmatic: Code defaults → Environment variables → Runtime values
+
 ## Architecture
 
 ```
