@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Current version**: 0.0.1
 **Test coverage**: 319 tests (237 unit, 63 integration, 19 E2E)
 
+For user-facing documentation, installation instructions, and examples, see [README.md](./README.md).
+
 ## Build & Test Commands
 
 ### Building
@@ -122,6 +124,8 @@ const meter = metrics.getMeter('my-meter')
 
 This wrapper was added to provide `forceFlush()` for testing (E2E tests need to flush metrics before querying Prometheus).
 
+See [src/utils/otel/README.md](./src/utils/otel/README.md) for complete OpenTelemetry documentation.
+
 ### Logger Architecture (`src/utils/logger/`)
 
 Pino-based logging with pluggable transports and OpenTelemetry correlation:
@@ -157,6 +161,8 @@ await withSpan('operation', async () => {
 
 This enables log-trace correlation in Grafana.
 
+See [src/utils/logger/README.md](./src/utils/logger/README.md) for complete logger documentation.
+
 ## Testing Strategy
 
 ### Unit Tests (`tests/unit/`)
@@ -172,6 +178,8 @@ This enables log-trace correlation in Grafana.
 - Test full logger pipelines (transports, plugins, file I/O)
 - Validate OpenTelemetry metrics integration
 - Test error handling, high-volume logging, edge cases
+
+See [tests/integration/README.md](./tests/integration/README.md) for detailed test documentation.
 
 ### E2E Tests (`tests/e2e/`)
 
@@ -193,7 +201,7 @@ This enables log-trace correlation in Grafana.
 3. **Wait Times**: Tests wait for pipeline delays (Loki: 12s, Tempo: 20s, Prometheus: 30s)
 4. **Unique Test IDs**: All tests generate unique IDs to avoid cross-test interference
 
-See `tests/e2e/DEBUG.md` for infrastructure details and debugging.
+See [tests/e2e/README.md](./tests/e2e/README.md) for detailed E2E test documentation and [tests/e2e/DEBUG.md](./tests/e2e/DEBUG.md) for infrastructure debugging.
 
 ## OTEL Collector Resource Processor
 
@@ -383,11 +391,17 @@ If metrics tests fail after running other tests:
 
 ## Documentation
 
-- [OpenTelemetry Guide](./src/utils/otel/README.md) - Detailed OTEL usage and configuration
-- [Logger Guide](./src/utils/logger/README.md) - Pino logging setup and plugins
-- [E2E Tests](./tests/e2e/README.md) - Production pipeline validation
-- [E2E Debugging](./tests/e2e/DEBUG.md) - Infrastructure debugging guide
-- [Integration Tests](./tests/integration/README.md) - Logger integration testing
+### User Documentation
+- [**README.md**](./README.md) - Main project documentation with installation, quick start, API reference, and examples
+
+### Implementation Guides
+- [**OpenTelemetry Guide**](./src/utils/otel/README.md) - Detailed OTEL usage, configuration, exporters, and manual instrumentation
+- [**Logger Guide**](./src/utils/logger/README.md) - Pino logging setup, transports, plugins, and best practices
+
+### Testing Documentation
+- [**Integration Tests**](./tests/integration/README.md) - Logger integration testing guide
+- [**E2E Tests**](./tests/e2e/README.md) - Production pipeline validation and backend testing
+- [**E2E Debugging**](./tests/e2e/DEBUG.md) - Infrastructure debugging guide
 
 ## Version History
 
