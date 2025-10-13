@@ -5,8 +5,14 @@ import {
   clearMemoryLogs,
   getMemoryLogSize,
   getAllMemoryStoreNames,
+  getMemoryLogStream,
+  filterByLevel,
+  filterSince,
+  withBackpressure,
+  disposeMemoryStore,
 } from '../../../src/utils/logger/transports/memory'
 import { createLogger } from '../../../src/utils/logger'
+import { firstValueFrom, take, toArray } from 'rxjs'
 
 describe('Memory Transport', () => {
   beforeEach(() => {
@@ -454,6 +460,339 @@ describe('Memory Transport', () => {
           expect(logs[0]).not.toHaveProperty('msg')
           resolve(undefined)
         }, 50)
+      })
+    })
+  })
+
+  describe('RxJS streaming', () => {
+    describe('getMemoryLogStream', () => {
+      it('should return an observable', () => {
+        createMemoryTransport({ name: 'stream-test' })
+        const stream$ = getMemoryLogStream('stream-test')
+
+        expect(stream$).toBeDefined()
+        expect(typeof stream$.subscribe).toBe('function')
+      })
+
+      it('should return EMPTY observable for non-existent store', async () => {
+        const stream$ = getMemoryLogStream('non-existent')
+        const hasValue = await new Promise((resolve) => {
+          let emitted = false
+          const sub = stream$.subscribe({
+            next: () => { emitted = true },
+            complete: () => resolve(emitted)
+          })
+
+          // Force completion check
+          setTimeout(() => {
+            sub.unsubscribe()
+            resolve(emitted)
+          }, 100)
+        })
+
+        expect(hasValue).toBe(false)
+      })
+
+      it('should emit logs in real-time', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'realtime-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('realtime-test')
+        const logs$ = stream$.pipe(take(3), toArray())
+
+        const logsPromise = firstValueFrom(logs$)
+
+        // Emit logs after subscribing
+        setTimeout(() => {
+          logger.info('Log 1')
+          logger.info('Log 2')
+          logger.info('Log 3')
+        }, 10)
+
+        const logs = await logsPromise
+        expect(logs).toHaveLength(3)
+        expect(logs[0]).toMatchObject({ msg: 'Log 1' })
+        expect(logs[1]).toMatchObject({ msg: 'Log 2' })
+        expect(logs[2]).toMatchObject({ msg: 'Log 3' })
+      })
+
+      it('should support multiple subscribers', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'multi-sub-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('multi-sub-test')
+
+        const subscriber1Logs: any[] = []
+        const subscriber2Logs: any[] = []
+
+        stream$.pipe(take(2)).subscribe(log => subscriber1Logs.push(log))
+        stream$.pipe(take(2)).subscribe(log => subscriber2Logs.push(log))
+
+        await new Promise((resolve) => {
+          setTimeout(() => {
+            logger.info('Log 1')
+            logger.info('Log 2')
+
+            setTimeout(() => {
+              expect(subscriber1Logs).toHaveLength(2)
+              expect(subscriber2Logs).toHaveLength(2)
+              expect(subscriber1Logs[0].msg).toBe('Log 1')
+              expect(subscriber2Logs[0].msg).toBe('Log 1')
+              resolve(undefined)
+            }, 50)
+          }, 10)
+        })
+      })
+    })
+
+    describe('filterByLevel operator', () => {
+      it('should filter by single level', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'filter-level-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('filter-level-test')
+        const errorLogs$ = stream$.pipe(
+          filterByLevel('error'),
+          take(1)
+        )
+
+        const logPromise = firstValueFrom(errorLogs$)
+
+        setTimeout(() => {
+          logger.info('Info log')
+          logger.warn('Warn log')
+          logger.error('Error log')
+        }, 10)
+
+        const log = await logPromise
+        expect(log).toMatchObject({ msg: 'Error log', level: 50 })
+      })
+
+      it('should filter by multiple levels', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'filter-multi-level-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('filter-multi-level-test')
+        const logs$ = stream$.pipe(
+          filterByLevel(['error', 'warn']),
+          take(2),
+          toArray()
+        )
+
+        const logsPromise = firstValueFrom(logs$)
+
+        setTimeout(() => {
+          logger.info('Info log')
+          logger.warn('Warn log')
+          logger.debug('Debug log')
+          logger.error('Error log')
+        }, 10)
+
+        const logs = await logsPromise
+        expect(logs).toHaveLength(2)
+        expect(logs[0]).toMatchObject({ msg: 'Warn log', level: 40 })
+        expect(logs[1]).toMatchObject({ msg: 'Error log', level: 50 })
+      })
+    })
+
+    describe('filterSince operator', () => {
+      it('should filter by timestamp', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'filter-since-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('filter-since-test')
+
+        // Log before timestamp
+        logger.info('Old log')
+
+        await new Promise(resolve => setTimeout(resolve, 50))
+
+        const cutoffTime = Date.now()
+
+        const logs$ = stream$.pipe(
+          filterSince(cutoffTime),
+          take(1)
+        )
+
+        const logPromise = firstValueFrom(logs$)
+
+        setTimeout(() => {
+          logger.info('New log')
+        }, 10)
+
+        const log = await logPromise
+        expect(log).toMatchObject({ msg: 'New log' })
+        expect(log.time).toBeGreaterThanOrEqual(cutoffTime)
+      })
+    })
+
+    describe('withBackpressure operator', () => {
+      it('should throttle log emissions', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'throttle-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('throttle-test')
+        const throttled$ = stream$.pipe(
+          withBackpressure({ throttleMs: 100 }),
+          take(2),
+          toArray()
+        )
+
+        const logsPromise = firstValueFrom(throttled$)
+
+        // Emit logs rapidly
+        logger.info('Log 1')
+        setTimeout(() => logger.info('Log 2'), 10)
+        setTimeout(() => logger.info('Log 3'), 20)
+        setTimeout(() => logger.info('Log 4'), 110)
+        setTimeout(() => logger.info('Log 5'), 120)
+
+        const logs = await logsPromise
+
+        // Should only get throttled logs (first in each 100ms window)
+        expect(logs).toHaveLength(2)
+        expect(logs[0]).toMatchObject({ msg: 'Log 1' })
+        expect(logs[1]).toMatchObject({ msg: 'Log 4' })
+      })
+
+      it('should buffer log emissions', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'buffer-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('buffer-test')
+        const buffered$ = stream$.pipe(
+          withBackpressure({ bufferMs: 100 }),
+          take(1)
+        )
+
+        const bufferPromise = firstValueFrom(buffered$)
+
+        // Emit logs rapidly
+        setTimeout(() => {
+          logger.info('Log 1')
+          logger.info('Log 2')
+          logger.info('Log 3')
+        }, 10)
+
+        const buffer = await bufferPromise
+
+        // Should get an array of buffered logs
+        expect(Array.isArray(buffer)).toBe(true)
+        expect(buffer.length).toBeGreaterThan(0)
+      })
+
+      it('should pass through without backpressure options', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'passthrough-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('passthrough-test')
+        const passthrough$ = stream$.pipe(
+          withBackpressure({}),
+          take(2),
+          toArray()
+        )
+
+        const logsPromise = firstValueFrom(passthrough$)
+
+        setTimeout(() => {
+          logger.info('Log 1')
+          logger.info('Log 2')
+        }, 10)
+
+        const logs = await logsPromise
+        expect(logs).toHaveLength(2)
+        expect(logs[0]).toMatchObject({ msg: 'Log 1' })
+        expect(logs[1]).toMatchObject({ msg: 'Log 2' })
+      })
+    })
+
+    describe('disposeMemoryStore', () => {
+      it('should complete the subject', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'dispose-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('dispose-test')
+
+        let completed = false
+        stream$.subscribe({
+          complete: () => { completed = true }
+        })
+
+        disposeMemoryStore('dispose-test')
+
+        await new Promise(resolve => setTimeout(resolve, 50))
+        expect(completed).toBe(true)
+      })
+
+      it('should clear logs', () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'dispose-clear-test' })],
+        })
+
+        logger.info('Test log')
+
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            expect(getMemoryLogSize('dispose-clear-test')).toBeGreaterThan(0)
+            disposeMemoryStore('dispose-clear-test')
+            expect(getMemoryLogSize('dispose-clear-test')).toBe(0)
+            resolve(undefined)
+          }, 50)
+        })
+      })
+
+      it('should remove store from registry', () => {
+        createMemoryTransport({ name: 'dispose-remove-test' })
+
+        expect(getAllMemoryStoreNames()).toContain('dispose-remove-test')
+        disposeMemoryStore('dispose-remove-test')
+        expect(getAllMemoryStoreNames()).not.toContain('dispose-remove-test')
+      })
+    })
+
+    describe('combined operators', () => {
+      it('should combine filterByLevel and withBackpressure', async () => {
+        const logger = createLogger({
+          name: 'test',
+          transports: [createMemoryTransport({ name: 'combined-test' })],
+        })
+
+        const stream$ = getMemoryLogStream('combined-test')
+        const filtered$ = stream$.pipe(
+          filterByLevel('error'),
+          withBackpressure({ throttleMs: 50 }),
+          take(1)
+        )
+
+        const logPromise = firstValueFrom(filtered$)
+
+        setTimeout(() => {
+          logger.error('Error 1')
+          logger.info('Info 1')
+          logger.error('Error 2')
+        }, 10)
+
+        const log = await logPromise
+        expect(log).toMatchObject({ msg: 'Error 1', level: 50 })
       })
     })
   })
