@@ -109,6 +109,93 @@ await withSpan('process-order', async () => {
 })
 ```
 
+### Config-Driven Setup
+
+⭐Wonder Logger⭐ supports YAML-based configuration with environment variable interpolation:
+
+**1. Create `wonder-logger.yaml` in your project root:**
+
+```yaml
+service:
+  name: ${SERVICE_NAME:-my-api}
+  version: ${SERVICE_VERSION:-1.0.0}
+  environment: ${NODE_ENV:-development}
+
+logger:
+  enabled: true
+  level: ${LOG_LEVEL:-info}
+  redact:
+    - password
+    - token
+  transports:
+    - type: console
+      pretty: ${LOG_PRETTY:-false}
+    - type: file
+      dir: ./logs
+      fileName: app.log
+    - type: otel
+      endpoint: ${OTEL_LOGS_ENDPOINT:-http://localhost:4318/v1/logs}
+  plugins:
+    traceContext: true
+
+otel:
+  enabled: true
+  tracing:
+    enabled: true
+    exporter: ${OTEL_TRACE_EXPORTER:-otlp}
+    endpoint: ${OTEL_TRACES_ENDPOINT:-http://localhost:4318/v1/traces}
+    sampleRate: 1.0
+  metrics:
+    enabled: true
+    exporters:
+      - type: prometheus
+        port: ${PROMETHEUS_PORT:-9464}
+      - type: otlp
+        endpoint: ${OTEL_METRICS_ENDPOINT:-http://localhost:4318/v1/metrics}
+        exportIntervalMillis: 60000
+  instrumentation:
+    auto: true
+    http: true
+```
+
+**2. Load configuration in your application:**
+
+```typescript
+import { createLoggerFromConfig, createTelemetryFromConfig } from 'wonder-logger'
+
+// Load from default location (wonder-logger.yaml)
+const sdk = createTelemetryFromConfig()
+const logger = createLoggerFromConfig()
+
+// With custom config path
+const logger = createLoggerFromConfig({
+  configPath: './config/production.yaml'
+})
+
+// With runtime overrides
+const sdk = createTelemetryFromConfig({
+  overrides: {
+    serviceName: 'override-service',
+    environment: 'staging'
+  }
+})
+```
+
+**3. Environment variable syntax:**
+
+```yaml
+# Required variable (throws error if not set)
+service:
+  name: ${SERVICE_NAME}
+
+# Optional variable with default
+service:
+  name: ${SERVICE_NAME:-my-api}
+  version: ${npm_package_version:-1.0.0}
+```
+
+See [Configuration Guide](./src/utils/config/README.md) for complete documentation.
+
 ## Architecture
 
 ```
@@ -141,6 +228,7 @@ wonder-logger/
 
 - [Structured Logging Guide](./src/utils/logger/README.md) - Complete logger documentation
 - [OpenTelemetry Guide](./src/utils/otel/README.md) - Telemetry setup and configuration
+- [Configuration Guide](./src/utils/config/README.md) - YAML-based configuration system
 
 ### Examples
 
@@ -262,8 +350,15 @@ async function processPayment(orderId: string) {
 ### Logger
 
 ```typescript
-// Create logger
+// Create logger (programmatic)
 createLogger(options: LoggerOptions): pino.Logger
+
+// Create logger (config-driven)
+createLoggerFromConfig(options?: {
+  configPath?: string
+  required?: boolean
+  overrides?: Partial<LoggerOptions>
+}): pino.Logger
 
 // Transports
 createConsoleTransport(options?: ConsoleTransportOptions): pino.StreamEntry
@@ -276,6 +371,13 @@ getMemoryLogs(name: string, options?: MemoryQueryOptions): RawLogEntry[] | Parse
 clearMemoryLogs(name: string): void
 getMemoryLogSize(name: string): number
 getAllMemoryStoreNames(): string[]
+disposeMemoryStore(name: string): void
+
+// Memory transport streaming (RxJS)
+getMemoryLogStream(name: string): Observable<RawLogEntry> | null
+filterByLevel(level: string | string[]): OperatorFunction<RawLogEntry, RawLogEntry>
+filterSince(timestamp: number): OperatorFunction<RawLogEntry, RawLogEntry>
+withBackpressure(options: BackpressureOptions): OperatorFunction<RawLogEntry, RawLogEntry | RawLogEntry[]>
 
 // Plugins
 withTraceContext(logger: pino.Logger): pino.Logger
@@ -285,8 +387,15 @@ createMorganStream(logger: pino.Logger): NodeJS.WritableStream
 ### OpenTelemetry
 
 ```typescript
-// Create telemetry SDK
+// Create telemetry SDK (programmatic)
 createTelemetry(options: TelemetryOptions): TelemetrySDK
+
+// Create telemetry SDK (config-driven)
+createTelemetryFromConfig(options?: {
+  configPath?: string
+  required?: boolean
+  overrides?: Partial<TelemetryOptions>
+}): TelemetrySDK
 
 // Manual instrumentation
 withSpan(spanName: string, fn: () => Promise<T>, tracerName?: string): Promise<T>
@@ -295,6 +404,25 @@ withSpan(spanName: string, fn: () => Promise<T>, tracerName?: string): Promise<T
 sdk.start(): void
 sdk.shutdown(): Promise<void>
 sdk.forceFlush(): Promise<void>
+```
+
+### Configuration
+
+```typescript
+// Load and parse configuration
+loadConfig(options?: {
+  configPath?: string
+  required?: boolean
+}): WonderLoggerConfig | null
+
+// Load from specific file
+loadConfigFromFile(filePath: string): WonderLoggerConfig
+
+// Find config file in cwd
+findConfigFile(fileName?: string): string | null
+
+// Parse YAML with env var interpolation
+parseYamlWithEnv(yamlContent: string): any
 ```
 
 ## Environment Variables
@@ -408,15 +536,36 @@ pnpm test:watch
 
 ```typescript
 import type {
+  // Logger types
   LoggerOptions,
   ConsoleTransportOptions,
   FileTransportOptions,
   OtelTransportOptions,
   MemoryTransportOptions,
+  MemoryQueryOptions,
+  RawLogEntry,
+  ParsedLogEntry,
+  BackpressureOptions,
+
+  // OpenTelemetry types
   TelemetryOptions,
   TracingOptions,
   MetricsOptions,
-  TelemetrySDK
+  TelemetrySDK,
+
+  // Configuration types
+  WonderLoggerConfig,
+  ServiceConfig,
+  LoggerConfig,
+  OtelConfig,
+  TransportConfig,
+  LoggerPluginsConfig,
+  TracingConfig,
+  MetricsConfig,
+  MetricsExporterConfig,
+  PrometheusExporterConfig,
+  OtlpMetricsExporterConfig,
+  InstrumentationConfig
 } from 'wonder-logger'
 ```
 
