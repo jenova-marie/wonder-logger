@@ -62,7 +62,9 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "src/**/README.md",
+    "wonder-logger.yaml"
   ],
   "packageManager": "pnpm@10.14.0",
   "devDependencies": {
