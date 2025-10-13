@@ -5,13 +5,13 @@
  */
 
 import pino from 'pino'
-import { loadConfig } from '../config'
-import type { LoggerConfig, TransportConfig } from '../config/types'
-import { createLogger } from './index'
-import { createConsoleTransport } from './transports/console'
-import { createFileTransport } from './transports/file'
-import { createOtelTransport } from './transports/otel'
-import { withTraceContext } from './plugins/traceContext'
+import { loadConfig } from '../config/index.js'
+import type { LoggerConfig, TransportConfig } from '../config/types.js'
+import { createLogger } from './index.js'
+import { createConsoleTransport } from './transports/console.js'
+import { createFileTransport } from './transports/file.js'
+import { createOtelTransport } from './transports/otel.js'
+import { withTraceContext } from './plugins/traceContext.js'
 
 /**
  * Options for createLoggerFromConfig

@@ -113,10 +113,10 @@ export function createLogger(options: LoggerOptions): pino.Logger {
 }
 
 // Re-export transport builders for convenience
-export { createConsoleTransport } from './transports/console'
-export { createFileTransport } from './transports/file'
-export { createOtelTransport } from './transports/otel'
-export { createMemoryTransport } from './transports/memory'
+export { createConsoleTransport } from './transports/console.js'
+export { createFileTransport } from './transports/file.js'
+export { createOtelTransport } from './transports/otel.js'
+export { createMemoryTransport } from './transports/memory.js'
 
 // Re-export memory transport utilities
 export {
@@ -129,24 +129,24 @@ export {
   filterSince,
   withBackpressure,
   disposeMemoryStore,
-} from './transports/memory'
+} from './transports/memory.js'
 
 // Re-export plugin utilities
-export { withTraceContext } from './plugins/traceContext'
-export { createMorganStream } from './plugins/morganStream'
+export { withTraceContext } from './plugins/traceContext.js'
+export { createMorganStream } from './plugins/morganStream.js'
 
 // Re-export config-driven logger factory
-export { createLoggerFromConfig } from './config'
-export type { CreateLoggerFromConfigOptions } from './config'
+export { createLoggerFromConfig } from './config.js'
+export type { CreateLoggerFromConfigOptions } from './config.js'
 
 // Re-export types
-export type { ConsoleTransportOptions } from './transports/console'
-export type { FileTransportOptions } from './transports/file'
-export type { OtelTransportOptions } from './transports/otel'
+export type { ConsoleTransportOptions } from './transports/console.js'
+export type { FileTransportOptions } from './transports/file.js'
+export type { OtelTransportOptions } from './transports/otel.js'
 export type {
   MemoryTransportOptions,
   MemoryQueryOptions,
   RawLogEntry,
   ParsedLogEntry,
   BackpressureOptions,
-} from './transports/memory'
+} from './transports/memory.js'
