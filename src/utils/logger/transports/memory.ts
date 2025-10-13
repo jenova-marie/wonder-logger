@@ -18,6 +18,8 @@
 
 import pino from 'pino'
 import { Writable } from 'stream'
+import { Subject, Observable, EMPTY, filter, throttleTime, bufferTime } from 'rxjs'
+import type { OperatorFunction, MonoTypeOperatorFunction } from 'rxjs'
 
 /**
  * Raw log entry as stored in memory
@@ -95,6 +97,7 @@ export interface MemoryQueryOptions {
 interface MemoryStore {
   logs: RawLogEntry[]
   maxSize: number
+  subject: Subject<RawLogEntry>
 }
 
 /**
@@ -145,6 +148,7 @@ export function createMemoryTransport(
     memoryStores.set(storeName, {
       logs: [],
       maxSize,
+      subject: new Subject<RawLogEntry>(),
     })
   }
 
@@ -163,6 +167,9 @@ export function createMemoryTransport(
         if (store.logs.length > store.maxSize) {
           store.logs.shift()
         }
+
+        // Emit to RxJS subscribers
+        store.subject.next(log)
 
         callback()
       } catch (err) {
@@ -260,6 +267,43 @@ export function clearMemoryLogs(name: string): void {
 }
 
 /**
+ * Get real-time log stream as an RxJS Observable
+ *
+ * Returns only live logs (no replay buffer). Use RxJS operators to filter,
+ * throttle, buffer, or otherwise transform the stream.
+ *
+ * @param name - Registry name of the memory store
+ * @returns Observable that emits log entries in real-time
+ *
+ * @example
+ * // Subscribe to all logs
+ * const logs$ = getMemoryLogStream('api')
+ * logs$.subscribe(log => console.log(log))
+ *
+ * @example
+ * // Filter by level using helper operator
+ * import { filterByLevel } from './transports/memory'
+ * logs$.pipe(
+ *   filterByLevel('error')
+ * ).subscribe(log => console.error(log))
+ *
+ * @example
+ * // Built-in backpressure with throttling
+ * import { withBackpressure } from './transports/memory'
+ * logs$.pipe(
+ *   withBackpressure({ throttleMs: 1000 })
+ * ).subscribe(log => sendToSlack(log))
+ */
+export function getMemoryLogStream(name: string): Observable<RawLogEntry> {
+  const store = memoryStores.get(name)
+  if (!store) {
+    return EMPTY
+  }
+
+  return store.subject.asObservable()
+}
+
+/**
  * Get current number of logs in a memory store
  *
  * @param name - Registry name of the memory store
@@ -277,4 +321,121 @@ export function getMemoryLogSize(name: string): number {
  */
 export function getAllMemoryStoreNames(): string[] {
   return Array.from(memoryStores.keys())
+}
+
+/**
+ * RxJS operator to filter log stream by level(s)
+ *
+ * @param level - Single level or array of levels to include
+ * @returns Operator function that filters logs
+ *
+ * @example
+ * // Filter for errors only
+ * logs$.pipe(filterByLevel('error')).subscribe(...)
+ *
+ * @example
+ * // Filter for errors and warnings
+ * logs$.pipe(filterByLevel(['error', 'warn'])).subscribe(...)
+ */
+export function filterByLevel(
+  level: pino.LevelWithSilent | pino.LevelWithSilent[]
+): MonoTypeOperatorFunction<RawLogEntry> {
+  const levels = Array.isArray(level) ? level : [level]
+  const levelNumbers = levels.map((l) => LEVEL_NUMBER_MAP[l])
+
+  return filter((log: RawLogEntry) => levelNumbers.includes(log.level))
+}
+
+/**
+ * RxJS operator to filter log stream by timestamp
+ *
+ * @param timestamp - Minimum timestamp (milliseconds)
+ * @returns Operator function that filters logs after timestamp
+ *
+ * @example
+ * // Only logs from last minute
+ * logs$.pipe(filterSince(Date.now() - 60000)).subscribe(...)
+ */
+export function filterSince(
+  timestamp: number
+): MonoTypeOperatorFunction<RawLogEntry> {
+  return filter((log: RawLogEntry) => log.time >= timestamp)
+}
+
+/**
+ * Backpressure configuration for log streams
+ */
+export interface BackpressureOptions {
+  /**
+   * Throttle mode: emit one log every N milliseconds
+   */
+  throttleMs?: number
+
+  /**
+   * Buffer mode: collect logs for N milliseconds then emit array
+   */
+  bufferMs?: number
+}
+
+/**
+ * RxJS operator to apply backpressure handling
+ *
+ * Prevents overwhelming subscribers by throttling or buffering log emissions.
+ * Choose either throttle (emit one log per interval) or buffer (emit arrays).
+ *
+ * @param options - Backpressure configuration
+ * @returns Operator function that applies backpressure
+ *
+ * @example
+ * // Throttle: emit max one log per second
+ * logs$.pipe(
+ *   withBackpressure({ throttleMs: 1000 })
+ * ).subscribe(log => sendToSlack(log))
+ *
+ * @example
+ * // Buffer: emit batches every 5 seconds
+ * logs$.pipe(
+ *   withBackpressure({ bufferMs: 5000 })
+ * ).subscribe(logs => bulkInsertToDb(logs))
+ */
+export function withBackpressure(
+  options: BackpressureOptions
+): OperatorFunction<RawLogEntry, RawLogEntry | RawLogEntry[]> {
+  if (options.throttleMs !== undefined) {
+    return throttleTime(options.throttleMs) as OperatorFunction<
+      RawLogEntry,
+      RawLogEntry | RawLogEntry[]
+    >
+  }
+
+  if (options.bufferMs !== undefined) {
+    return bufferTime(options.bufferMs) as OperatorFunction<
+      RawLogEntry,
+      RawLogEntry | RawLogEntry[]
+    >
+  }
+
+  // No backpressure - pass through
+  return (source) => source as Observable<RawLogEntry | RawLogEntry[]>
+}
+
+/**
+ * Dispose of a memory store and complete its RxJS subject
+ *
+ * Completes the subject (stopping all emissions), clears logs, and removes
+ * the store from the registry. All subscribers will automatically complete.
+ *
+ * @param name - Registry name of the memory store
+ *
+ * @example
+ * // Cleanup when shutting down
+ * disposeMemoryStore('api')
+ */
+export function disposeMemoryStore(name: string): void {
+  const store = memoryStores.get(name)
+  if (store) {
+    store.subject.complete()
+    store.logs = []
+    memoryStores.delete(name)
+  }
 }

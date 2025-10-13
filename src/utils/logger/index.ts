@@ -124,11 +124,20 @@ export {
   clearMemoryLogs,
   getMemoryLogSize,
   getAllMemoryStoreNames,
+  getMemoryLogStream,
+  filterByLevel,
+  filterSince,
+  withBackpressure,
+  disposeMemoryStore,
 } from './transports/memory'
 
 // Re-export plugin utilities
 export { withTraceContext } from './plugins/traceContext'
 export { createMorganStream } from './plugins/morganStream'
+
+// Re-export config-driven logger factory
+export { createLoggerFromConfig } from './config'
+export type { CreateLoggerFromConfigOptions } from './config'
 
 // Re-export types
 export type { ConsoleTransportOptions } from './transports/console'
@@ -139,4 +148,5 @@ export type {
   MemoryQueryOptions,
   RawLogEntry,
   ParsedLogEntry,
+  BackpressureOptions,
 } from './transports/memory'
