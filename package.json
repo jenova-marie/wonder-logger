@@ -63,6 +63,7 @@
     "dist",
     "README.md",
     "LICENSE",
+    "logo.png",
     "src/**/README.md",
     "wonder-logger.example.yaml",
     ".env.example"
