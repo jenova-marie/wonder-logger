@@ -20,4 +20,4 @@ export type {
   InstrumentationConfig,
   OtelConfig,
   WonderLoggerConfig,
-} from './schema'
+} from './schema.js'

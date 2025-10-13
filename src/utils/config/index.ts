@@ -16,8 +16,8 @@
  */
 
 // Core functionality
-export { loadConfig, loadConfigFromFile, findConfigFile, DEFAULT_CONFIG_FILE } from './loader'
-export { parseYamlWithEnv, interpolateEnvVars, interpolateObject } from './parser'
+export { loadConfig, loadConfigFromFile, findConfigFile, DEFAULT_CONFIG_FILE } from './loader.js'
+export { parseYamlWithEnv, interpolateEnvVars, interpolateObject } from './parser.js'
 
 // Schemas for advanced usage
 export {
@@ -36,7 +36,7 @@ export {
   prometheusExporterSchema,
   otlpMetricsExporterSchema,
   instrumentationConfigSchema,
-} from './schema'
+} from './schema.js'
 
 // Type exports
 export type {
@@ -55,4 +55,4 @@ export type {
   PrometheusExporterConfig,
   OtlpMetricsExporterConfig,
   InstrumentationConfig,
-} from './types'
+} from './types.js'

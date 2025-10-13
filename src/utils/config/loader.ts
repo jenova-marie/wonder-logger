@@ -6,8 +6,8 @@
 
 import fs from 'fs'
 import path from 'path'
-import { parseYamlWithEnv } from './parser'
-import { configSchema, type WonderLoggerConfig } from './schema'
+import { parseYamlWithEnv } from './parser.js'
+import { configSchema, type WonderLoggerConfig } from './schema.js'
 
 /**
  * Default config file name
