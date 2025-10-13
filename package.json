@@ -1,6 +1,6 @@
 {
   "name": "@recoverysky/wonder-logger",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications",
   "type": "module",
   "publishConfig": {
