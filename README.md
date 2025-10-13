@@ -3,7 +3,7 @@
 > Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications
 
 [![Build Status](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/jenova-marie/wonder-logger/branch/main/graph/badge.svg)](https://codecov.io/gh/jenova-marie/wonder-logger)
+[![codecov](https://codecov.io/gh/jenova-marie/wonder-logger/graph/badge.svg?token=JX2GD4TIFX)](https://codecov.io/gh/jenova-marie/wonder-logger)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![npm version](https://img.shields.io/npm/v/wonder-logger.svg)](https://www.npmjs.com/package/wonder-logger)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
