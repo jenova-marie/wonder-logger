@@ -1,4 +1,4 @@
-# Wonder Logger
+# ⭐Wonder Logger⭐
 
 > Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications
 
@@ -12,7 +12,7 @@
 
 ## Overview
 
-Wonder Logger is a comprehensive observability solution that unifies structured logging and distributed tracing for Node.js applications. Built on industry-standard tools ([Pino](https://getpino.io/) and [OpenTelemetry](https://opentelemetry.io/)), it provides a clean, modular API for instrumenting your applications with production-grade observability.
+⭐Wonder Logger⭐ is a comprehensive observability solution that unifies structured logging and distributed tracing for Node.js applications. Built on industry-standard tools ([Pino](https://getpino.io/) and [OpenTelemetry](https://opentelemetry.io/)), it provides a clean, modular API for instrumenting your applications with production-grade observability.
 
 ### Key Features
 
@@ -324,7 +324,7 @@ NODE_ENV=production
 
 ## Testing
 
-Wonder Logger includes comprehensive test coverage:
+⭐Wonder Logger⭐ includes comprehensive test coverage:
 
 - **237 unit tests** - Fast, isolated component testing
 - **63 integration tests** - Real behavior validation
@@ -404,7 +404,7 @@ pnpm test:watch
 
 ## TypeScript
 
-Wonder Logger is written in TypeScript and provides complete type definitions:
+⭐Wonder Logger⭐ is written in TypeScript and provides complete type definitions:
 
 ```typescript
 import type {
@@ -469,7 +469,7 @@ MIT © [jenova-marie](https://github.com/jenova-marie)
 
 ## Acknowledgments
 
-Wonder Logger is built on these excellent open-source projects:
+⭐Wonder Logger⭐ is built on these excellent open-source projects:
 
 - [Pino](https://getpino.io/) - Fast and low overhead logging
 - [OpenTelemetry](https://opentelemetry.io/) - Vendor-neutral observability framework
