@@ -11,7 +11,7 @@ import starLogger, {
   createMorganStream,
 } from "../../src/index";
 
-describe("star-logger exports", () => {
+describe("wonder-logger exports", () => {
   describe("named exports", () => {
     it("should export createLogger function", () => {
       expect(createLogger).toBeDefined();

@@ -1,5 +1,5 @@
 /**
- * Star Logger - Production-ready observability toolkit
+ * Wonder Logger - Production-ready observability toolkit
  *
  * Combines OpenTelemetry instrumentation with structured Pino logging
  * for comprehensive Node.js application observability.
