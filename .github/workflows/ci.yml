@@ -45,5 +45,5 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/coverage-final.json
           flags: unittests
-          name: wonder-logger
+          name: codecov-umbrella
           fail_ci_if_error: true
