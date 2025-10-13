@@ -1,6 +1,10 @@
-# ⭐Wonder Logger⭐
+<div align="center">
+  <img src="./logo.png" alt="Wonder Logger Logo" width="200" />
+  <h1>⭐Wonder Logger⭐</h1>
+  <p><em>Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications</em></p>
+</div>
 
-> Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications
+<div align="center">
 
 [![Build Status](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/jenova-marie/wonder-logger/graph/badge.svg?token=7GEHX9N0O2)](https://codecov.io/github/jenova-marie/wonder-logger)
@@ -9,6 +13,10 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
+
+---
 
 ## Overview
 
@@ -47,6 +55,28 @@ yarn add wonder-logger
 ```bash
 pnpm add wonder-logger
 ```
+
+## 📚 Documentation
+
+**Comprehensive guides for all features:**
+
+- **[📝 Structured Logging Guide](./src/utils/logger/README.md)** - Complete Pino logger documentation
+  - Transports (console, file, OTEL, memory)
+  - Plugins (trace context, Morgan HTTP logging)
+  - RxJS streaming and real-time monitoring
+  - Testing and best practices
+
+- **[🔭 OpenTelemetry Guide](./src/utils/otel/README.md)** - Telemetry instrumentation and tracing
+  - Trace exporters (console, OTLP, Jaeger)
+  - Metrics exporters (Prometheus, OTLP)
+  - Auto-instrumentation setup
+  - Manual span instrumentation with `withSpan`
+
+- **[⚙️ Configuration Guide](./src/utils/config/README.md)** - YAML-based configuration system
+  - Environment variable interpolation
+  - Config-driven factories
+  - Validation with Zod schemas
+  - Multi-environment setup
 
 ## Quick Start
 
