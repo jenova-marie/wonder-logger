@@ -64,7 +64,8 @@
     "README.md",
     "LICENSE",
     "src/**/README.md",
-    "wonder-logger.yaml"
+    "wonder-logger.example.yaml",
+    ".env.example"
   ],
   "packageManager": "pnpm@10.14.0",
   "devDependencies": {
