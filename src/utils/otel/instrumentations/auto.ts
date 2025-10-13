@@ -6,8 +6,8 @@
 
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
-import { createHttpRequestHook, createHttpResponseHook } from './httpHooks'
-import type { AutoInstrumentationOptions } from '../types'
+import { createHttpRequestHook, createHttpResponseHook } from './httpHooks.js'
+import type { AutoInstrumentationOptions } from '../types.js'
 
 /**
  * Creates auto-instrumentation configuration

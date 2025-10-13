@@ -10,7 +10,7 @@ import {
   SEMRESATTRS_SERVICE_VERSION,
   SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
 } from '@opentelemetry/semantic-conventions'
-import type { ResourceOptions } from '../types'
+import type { ResourceOptions } from '../types.js'
 
 /**
  * Creates an OpenTelemetry Resource with service metadata

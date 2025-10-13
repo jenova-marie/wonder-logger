@@ -4,10 +4,10 @@
  * Creates OpenTelemetry SDK instances from YAML config files.
  */
 
-import { loadConfig } from '../config'
-import type { OtelConfig, MetricsExporterConfig } from '../config/types'
-import { createTelemetry } from './index'
-import type { TelemetryOptions, TelemetrySDK } from './types'
+import { loadConfig } from '../config/index.js'
+import type { OtelConfig, MetricsExporterConfig } from '../config/types.js'
+import { createTelemetry } from './index.js'
+import type { TelemetryOptions, TelemetrySDK } from './types.js'
 
 /**
  * Options for createTelemetryFromConfig

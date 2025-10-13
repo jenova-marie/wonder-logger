@@ -7,15 +7,15 @@
 import { NodeSDK } from '@opentelemetry/sdk-node'
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
-import { createResource } from './utils/resource'
-import { createConsoleTraceExporter } from './exporters/tracing/console'
-import { createOtlpTraceExporter } from './exporters/tracing/otlp'
-import { createJaegerTraceExporter } from './exporters/tracing/jaeger'
-import { createPrometheusExporter } from './exporters/metrics/prometheus'
-import { createOtlpMetricsExporter } from './exporters/metrics/otlp'
-import { createAutoInstrumentations } from './instrumentations/auto'
-import { setupGracefulShutdown } from './utils/gracefulShutdown'
-import type { TelemetryOptions, TelemetrySDK } from './types'
+import { createResource } from './utils/resource.js'
+import { createConsoleTraceExporter } from './exporters/tracing/console.js'
+import { createOtlpTraceExporter } from './exporters/tracing/otlp.js'
+import { createJaegerTraceExporter } from './exporters/tracing/jaeger.js'
+import { createPrometheusExporter } from './exporters/metrics/prometheus.js'
+import { createOtlpMetricsExporter } from './exporters/metrics/otlp.js'
+import { createAutoInstrumentations } from './instrumentations/auto.js'
+import { setupGracefulShutdown } from './utils/gracefulShutdown.js'
+import type { TelemetryOptions, TelemetrySDK } from './types.js'
 
 /**
  * Creates and initializes OpenTelemetry instrumentation
@@ -139,9 +139,9 @@ export function createTelemetry(options: TelemetryOptions): TelemetrySDK {
 }
 
 // Re-export utilities and types
-export { withSpan } from './utils/withSpan'
-export type { TelemetryOptions, TracingOptions, MetricsOptions, TelemetrySDK } from './types'
+export { withSpan } from './utils/withSpan.js'
+export type { TelemetryOptions, TracingOptions, MetricsOptions, TelemetrySDK } from './types.js'
 
 // Re-export config-driven telemetry factory
-export { createTelemetryFromConfig } from './config'
-export type { CreateTelemetryFromConfigOptions } from './config'
+export { createTelemetryFromConfig } from './config.js'
+export type { CreateTelemetryFromConfigOptions } from './config.js'
