@@ -141,3 +141,7 @@ export function createTelemetry(options: TelemetryOptions): TelemetrySDK {
 // Re-export utilities and types
 export { withSpan } from './utils/withSpan'
 export type { TelemetryOptions, TracingOptions, MetricsOptions, TelemetrySDK } from './types'
+
+// Re-export config-driven telemetry factory
+export { createTelemetryFromConfig } from './config'
+export type { CreateTelemetryFromConfigOptions } from './config'
