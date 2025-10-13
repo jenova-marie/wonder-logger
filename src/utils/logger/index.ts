@@ -116,6 +116,15 @@ export function createLogger(options: LoggerOptions): pino.Logger {
 export { createConsoleTransport } from './transports/console'
 export { createFileTransport } from './transports/file'
 export { createOtelTransport } from './transports/otel'
+export { createMemoryTransport } from './transports/memory'
+
+// Re-export memory transport utilities
+export {
+  getMemoryLogs,
+  clearMemoryLogs,
+  getMemoryLogSize,
+  getAllMemoryStoreNames,
+} from './transports/memory'
 
 // Re-export plugin utilities
 export { withTraceContext } from './plugins/traceContext'
@@ -125,3 +134,9 @@ export { createMorganStream } from './plugins/morganStream'
 export type { ConsoleTransportOptions } from './transports/console'
 export type { FileTransportOptions } from './transports/file'
 export type { OtelTransportOptions } from './transports/otel'
+export type {
+  MemoryTransportOptions,
+  MemoryQueryOptions,
+  RawLogEntry,
+  ParsedLogEntry,
+} from './transports/memory'
