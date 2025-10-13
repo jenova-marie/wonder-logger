@@ -1,6 +1,6 @@
-# Contributing to Wonder Logger
+# Contributing to Star Logger
 
-Thank you for your interest in contributing to Wonder Logger! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to Star Logger! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
@@ -19,8 +19,8 @@ This project adheres to a Code of Conduct that all contributors are expected to 
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/wonder-logger.git
-   cd wonder-logger
+   git clone https://github.com/YOUR_USERNAME/star-logger.git
+   cd star-logger
    ```
 
 3. Install dependencies:
@@ -203,4 +203,4 @@ src/
 
 ## License
 
-By contributing to Wonder Logger, you agree that your contributions will be licensed under the MIT License.
+By contributing to Star Logger, you agree that your contributions will be licensed under the MIT License.

@@ -11,7 +11,7 @@ We release patches for security vulnerabilities in the following versions:
 
 ## Reporting a Vulnerability
 
-We take the security of Wonder Logger seriously. If you believe you have found a security vulnerability, please report it to us as described below.
+We take the security of Star Logger seriously. If you believe you have found a security vulnerability, please report it to us as described below.
 
 ### Where to Report
 
@@ -48,14 +48,14 @@ Please include the following information in your report:
 
 ## Security Best Practices
 
-When using Wonder Logger in production:
+When using Star Logger in production:
 
 ### 1. Keep Dependencies Updated
 
-Regularly update Wonder Logger and its dependencies:
+Regularly update Star Logger and its dependencies:
 
 ```bash
-pnpm update @wonder-logger/core
+pnpm update @star-logger/core
 ```
 
 ### 2. Secure Configuration

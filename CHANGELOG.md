@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-10-13
 
 ### Added
-- Initial release of Wonder Logger
+- Initial release of Star Logger
 - OpenTelemetry SDK factory with modular exporter support
   - Console exporters for traces and metrics
   - OTLP HTTP exporters for traces and metrics
@@ -50,5 +50,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - N/A
 
-[Unreleased]: https://github.com/jenova-marie/wonder-logger/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/jenova-marie/wonder-logger/releases/tag/v1.0.0
+[Unreleased]: https://github.com/jenova-marie/star-logger/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/jenova-marie/star-logger/releases/tag/v1.0.0

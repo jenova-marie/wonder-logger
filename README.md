@@ -1,18 +1,18 @@
-# ⭐Wonder Logger⭐
+# ⭐Star Logger⭐
 
 > Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications
 
-[![Build Status](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/jenova-marie/wonder-logger/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/jenova-marie/wonder-logger/graph/badge.svg?token=JX2GD4TIFX)](https://codecov.io/gh/jenova-marie/wonder-logger)
+[![Build Status](https://github.com/jenova-marie/star-logger/actions/workflows/ci.yml/badge.svg)](https://github.com/jenova-marie/star-logger/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/jenova-marie/star-logger/graph/badge.svg?token=JX2GD4TIFX)](https://codecov.io/gh/jenova-marie/star-logger)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![npm version](https://img.shields.io/npm/v/wonder-logger.svg)](https://www.npmjs.com/package/wonder-logger)
+[![npm version](https://img.shields.io/npm/v/star-logger.svg)](https://www.npmjs.com/package/star-logger)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-⭐Wonder Logger⭐ is a comprehensive observability solution that unifies structured logging and distributed tracing for Node.js applications. Built on industry-standard tools ([Pino](https://getpino.io/) and [OpenTelemetry](https://opentelemetry.io/)), it provides a clean, modular API for instrumenting your applications with production-grade observability.
+⭐Star Logger⭐ is a comprehensive observability solution that unifies structured logging and distributed tracing for Node.js applications. Built on industry-standard tools ([Pino](https://getpino.io/) and [OpenTelemetry](https://opentelemetry.io/)), it provides a clean, modular API for instrumenting your applications with production-grade observability.
 
 ### Key Features
 
@@ -37,15 +37,15 @@
 ## Installation
 
 ```bash
-npm install wonder-logger
+npm install star-logger
 ```
 
 ```bash
-yarn add wonder-logger
+yarn add star-logger
 ```
 
 ```bash
-pnpm add wonder-logger
+pnpm add star-logger
 ```
 
 ## Quick Start
@@ -53,7 +53,7 @@ pnpm add wonder-logger
 ### Basic Logging
 
 ```typescript
-import { createLogger } from 'wonder-logger'
+import { createLogger } from 'star-logger'
 
 const logger = createLogger({
   name: 'my-service',
@@ -68,7 +68,7 @@ logger.error({ err: new Error('Failed') }, 'Operation failed')
 ### OpenTelemetry Instrumentation
 
 ```typescript
-import { createTelemetry } from 'wonder-logger'
+import { createTelemetry } from 'star-logger'
 
 // Initialize telemetry BEFORE other imports
 const sdk = createTelemetry({
@@ -93,7 +93,7 @@ const sdk = createTelemetry({
 ### Combined Logging + Tracing
 
 ```typescript
-import { createLogger, createTelemetry, withTraceContext, withSpan } from 'wonder-logger'
+import { createLogger, createTelemetry, withTraceContext, withSpan } from 'star-logger'
 
 // Initialize telemetry
 createTelemetry({ serviceName: 'my-api' })
@@ -112,7 +112,7 @@ await withSpan('process-order', async () => {
 ## Architecture
 
 ```
-wonder-logger/
+star-logger/
 ├── Logger (Pino-based)
 │   ├── Transports
 │   │   ├── Console (with pretty printing)
@@ -152,7 +152,7 @@ import {
   createConsoleTransport,
   createFileTransport,
   createOtelTransport
-} from 'wonder-logger'
+} from 'star-logger'
 
 const logger = createLogger({
   name: 'my-api',
@@ -178,7 +178,7 @@ import {
   withTraceContext,
   createMorganStream,
   withSpan
-} from 'wonder-logger'
+} from 'star-logger'
 
 // Initialize telemetry first
 createTelemetry({ serviceName: 'my-api' })
@@ -218,7 +218,7 @@ import {
   createLogger,
   createMemoryTransport,
   getMemoryLogs
-} from 'wonder-logger'
+} from 'star-logger'
 
 const logger = createLogger({
   name: 'test',
@@ -239,7 +239,7 @@ console.log(logs[0].userId) // 123
 #### Manual Span Instrumentation
 
 ```typescript
-import { withSpan } from 'wonder-logger'
+import { withSpan } from 'star-logger'
 import { metrics } from '@opentelemetry/api'
 
 async function processPayment(orderId: string) {
@@ -324,7 +324,7 @@ NODE_ENV=production
 
 ## Testing
 
-⭐Wonder Logger⭐ includes comprehensive test coverage:
+⭐Star Logger⭐ includes comprehensive test coverage:
 
 - **237 unit tests** - Fast, isolated component testing
 - **63 integration tests** - Real behavior validation
@@ -404,7 +404,7 @@ pnpm test:watch
 
 ## TypeScript
 
-⭐Wonder Logger⭐ is written in TypeScript and provides complete type definitions:
+⭐Star Logger⭐ is written in TypeScript and provides complete type definitions:
 
 ```typescript
 import type {
@@ -417,7 +417,7 @@ import type {
   TracingOptions,
   MetricsOptions,
   TelemetrySDK
-} from 'wonder-logger'
+} from 'star-logger'
 ```
 
 ### Module Configuration
@@ -450,8 +450,8 @@ Contributions are welcome! Please follow these guidelines:
 
 ```bash
 # Clone repository
-git clone https://github.com/jenova-marie/wonder-logger.git
-cd wonder-logger
+git clone https://github.com/jenova-marie/star-logger.git
+cd star-logger
 
 # Install dependencies
 pnpm install
@@ -469,7 +469,7 @@ MIT © [jenova-marie](https://github.com/jenova-marie)
 
 ## Acknowledgments
 
-⭐Wonder Logger⭐ is built on these excellent open-source projects:
+⭐Star Logger⭐ is built on these excellent open-source projects:
 
 - [Pino](https://getpino.io/) - Fast and low overhead logging
 - [OpenTelemetry](https://opentelemetry.io/) - Vendor-neutral observability framework
@@ -477,9 +477,9 @@ MIT © [jenova-marie](https://github.com/jenova-marie)
 
 ## Support
 
-- [Documentation](https://github.com/jenova-marie/wonder-logger#readme)
-- [Issue Tracker](https://github.com/jenova-marie/wonder-logger/issues)
-- [Discussions](https://github.com/jenova-marie/wonder-logger/discussions)
+- [Documentation](https://github.com/jenova-marie/star-logger#readme)
+- [Issue Tracker](https://github.com/jenova-marie/star-logger/issues)
+- [Discussions](https://github.com/jenova-marie/star-logger/discussions)
 
 ---
 
