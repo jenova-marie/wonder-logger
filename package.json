@@ -1,6 +1,6 @@
 {
   "name": "wonder-logger",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications",
   "type": "module",
   "publishConfig": {
