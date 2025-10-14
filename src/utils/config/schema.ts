@@ -147,6 +147,11 @@ export const configSchema = z.object({
     metrics: { enabled: true, exporters: [], exportIntervalMillis: 60000 },
     instrumentation: { auto: true, http: true }
   }),
+  /**
+   * Internal metadata: directory containing the config file
+   * Used to resolve relative paths. Not specified in YAML.
+   */
+  _configDir: z.string().optional(),
 })
 
 /**

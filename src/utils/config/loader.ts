@@ -34,7 +34,7 @@ export function findConfigFile(fileName: string = DEFAULT_CONFIG_FILE): string |
  * Loads and validates config from a file
  *
  * @param filePath - Absolute path to config file
- * @returns Validated configuration object
+ * @returns Validated configuration object with _configDir metadata
  * @throws Error if file doesn't exist, is invalid YAML, or fails validation
  */
 export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
@@ -42,6 +42,9 @@ export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Config file not found: ${filePath}`)
   }
+
+  // Capture the directory containing the config file
+  const configDir = path.dirname(path.resolve(filePath))
 
   // Read file content
   let yamlContent: string
@@ -62,6 +65,9 @@ export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
       `Failed to parse config file '${filePath}': ${error instanceof Error ? error.message : String(error)}`
     )
   }
+
+  // Add config directory as metadata for relative path resolution
+  parsed._configDir = configDir
 
   // Validate against schema
   const result = configSchema.safeParse(parsed)
