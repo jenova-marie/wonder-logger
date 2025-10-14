@@ -83,6 +83,27 @@ const sdk = createTelemetryFromConfig({
 
 The config loader searches for `wonder-logger.yaml` in the current working directory (`process.cwd()`).
 
+### Relative Path Resolution
+
+**Important**: Relative paths specified in the configuration file are resolved **relative to the directory containing the config file**, not relative to `process.cwd()`.
+
+This means if your config file is at `/path/to/project/config/wonder-logger.yaml` and you specify:
+
+```yaml
+logger:
+  transports:
+    - type: file
+      dir: ./logs  # Relative path
+```
+
+The logs will be written to `/path/to/project/config/logs`, not `process.cwd()/logs`.
+
+This behavior applies to:
+- File transport `dir` paths
+- Any other file system paths in the configuration
+
+Absolute paths are always used as-is, regardless of config file location.
+
 ### File Format
 
 The configuration file uses YAML format with support for:
@@ -370,6 +391,7 @@ interface ConsoleTransportConfig {
 interface FileTransportConfig {
   type: 'file'
   dir?: string          // Directory path (default: './logs')
+                        // Relative paths are resolved relative to config file location
   fileName?: string     // File name (default: 'app.log')
   level?: string
   sync?: boolean        // Use sync I/O (default: false)
@@ -380,6 +402,13 @@ interface FileTransportConfig {
 **Example:**
 
 ```yaml
+# Relative path (resolved relative to config file directory)
+- type: file
+  dir: ./logs
+  fileName: application.log
+  level: info
+
+# Absolute path (used as-is)
 - type: file
   dir: /var/log/myapp
   fileName: application.log
