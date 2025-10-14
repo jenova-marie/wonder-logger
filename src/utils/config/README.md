@@ -1,6 +1,6 @@
 # Configuration System
 
-The configuration system provides YAML-based configuration for Star Logger with environment variable interpolation, Zod validation, and fail-fast error handling.
+The configuration system provides YAML-based configuration for Wonder Logger with environment variable interpolation, Zod validation, and fail-fast error handling.
 
 ## Table of Contents
 
