@@ -5,6 +5,7 @@
  */
 
 import pino from 'pino'
+import path from 'path'
 import { loadConfig } from '../config/index.js'
 import type { LoggerConfig, TransportConfig } from '../config/types.js'
 import { createLogger } from './index.js'
@@ -45,13 +46,15 @@ export interface CreateLoggerFromConfigOptions {
  * @param serviceName - Service name for OTEL transport
  * @param serviceVersion - Service version for OTEL transport
  * @param environment - Environment name for OTEL transport
+ * @param configDir - Directory containing config file (for resolving relative paths)
  * @returns Pino stream entry
  */
 function buildTransport(
   transportConfig: TransportConfig,
   serviceName: string,
   serviceVersion: string,
-  environment: string
+  environment: string,
+  configDir?: string
 ): pino.StreamEntry {
   switch (transportConfig.type) {
     case 'console':
@@ -61,14 +64,21 @@ function buildTransport(
         prettyOptions: transportConfig.prettyOptions,
       })
 
-    case 'file':
+    case 'file': {
+      // Resolve relative paths against config directory
+      let resolvedDir = transportConfig.dir
+      if (resolvedDir && configDir && !path.isAbsolute(resolvedDir)) {
+        resolvedDir = path.resolve(configDir, resolvedDir)
+      }
+
       return createFileTransport({
-        dir: transportConfig.dir,
+        dir: resolvedDir,
         fileName: transportConfig.fileName,
         level: transportConfig.level,
         sync: transportConfig.sync,
         mkdir: transportConfig.mkdir,
       })
+    }
 
     case 'otel':
       return createOtelTransport({
@@ -137,7 +147,7 @@ export function createLoggerFromConfig(
   const transports =
     overrides.transports ||
     config.logger.transports.map((t) =>
-      buildTransport(t, config.service.name, config.service.version, config.service.environment)
+      buildTransport(t, config.service.name, config.service.version, config.service.environment, config._configDir)
     )
 
   // If no transports configured, use console as default
