@@ -41,39 +41,30 @@ logger:
   transports:
     # Console transport (stdout/stderr)
     - type: console
-      pretty: ${LOG_PRETTY:-false}  # Pretty print for development
-      level: debug                  # Override log level for this transport
+      pretty: ${LOG_PRETTY:-false} # Pretty print for development
+      level: debug # Override log level for this transport
       prettyOptions:
         colorize: true
-        translateTime: 'yyyy-mm-dd HH:MM:ss'
-        ignore: 'pid,hostname'
+        translateTime: "yyyy-mm-dd HH:MM:ss"
+        ignore: "pid,hostname"
 
     # File transport (write to disk)
     - type: file
       dir: ./logs
       fileName: app.log
       level: info
-      mkdir: true  # Create directory if it doesn't exist
-      sync: false  # Use async I/O for better performance
+      mkdir: true # Create directory if it doesn't exist
+      sync: false # Use async I/O for better performance
 
     # Memory transport (store logs in memory for querying/testing)
-    # Note: This is programmatic only - not available via YAML config
-    # Use createMemoryTransport() directly in your code:
-    #
-    # import { createMemoryTransport, getMemoryLogs } from '@recoverysky/wonder-logger'
-    # const logger = createLogger({
-    #   transports: [
-    #     createMemoryTransport({ name: 'api', maxSize: 5000, level: 'debug' })
-    #   ]
-    # })
-    #
-    # // Query logs anywhere
-    # const logs = getMemoryLogs('api', { since: Date.now() - 60000 })
-    #
-    # // Real-time log stream with RxJS
-    # import { getMemoryLogStream, filterByLevel } from '@recoverysky/wonder-logger'
-    # const logs$ = getMemoryLogStream('api')
-    # logs$.pipe(filterByLevel('error')).subscribe(log => console.error(log))
+    - type: memory
+      name: ${SERVICE_NAME:-my-api} # Registry name for querying (defaults to service name)
+      maxSize: 10000 # Maximum logs to store (circular buffer)
+      level: debug # Log level for this transport
+    # Query logs programmatically:
+    # import { getMemoryLogs, getMemoryLogStream } from '@recoverysky/wonder-logger'
+    # const logs = getMemoryLogs('my-api', { since: Date.now() - 60000 })
+    # const logs$ = getMemoryLogStream('my-api')
 
     # OpenTelemetry transport (send to OTEL Collector/Loki)
     - type: otel
@@ -122,7 +113,7 @@ otel:
       # OTLP push exporter (remote write)
       - type: otlp
         endpoint: ${OTEL_METRICS_ENDPOINT:-http://localhost:4318/v1/metrics}
-        exportIntervalMillis: 60000  # Export every 60 seconds
+        exportIntervalMillis: 60000 # Export every 60 seconds
 
     # Global export interval (overridden by individual exporter settings)
     exportIntervalMillis: 60000
