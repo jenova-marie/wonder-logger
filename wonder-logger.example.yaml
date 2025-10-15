@@ -56,6 +56,25 @@ logger:
       mkdir: true  # Create directory if it doesn't exist
       sync: false  # Use async I/O for better performance
 
+    # Memory transport (store logs in memory for querying/testing)
+    # Note: This is programmatic only - not available via YAML config
+    # Use createMemoryTransport() directly in your code:
+    #
+    # import { createMemoryTransport, getMemoryLogs } from '@recoverysky/wonder-logger'
+    # const logger = createLogger({
+    #   transports: [
+    #     createMemoryTransport({ name: 'api', maxSize: 5000, level: 'debug' })
+    #   ]
+    # })
+    #
+    # // Query logs anywhere
+    # const logs = getMemoryLogs('api', { since: Date.now() - 60000 })
+    #
+    # // Real-time log stream with RxJS
+    # import { getMemoryLogStream, filterByLevel } from '@recoverysky/wonder-logger'
+    # const logs$ = getMemoryLogStream('api')
+    # logs$.pipe(filterByLevel('error')).subscribe(log => console.error(log))
+
     # OpenTelemetry transport (send to OTEL Collector/Loki)
     - type: otel
       endpoint: ${OTEL_LOGS_ENDPOINT:-http://localhost:4318/v1/logs}
