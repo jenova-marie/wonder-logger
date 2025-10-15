@@ -12,6 +12,7 @@ import { createLogger } from './index.js'
 import { createConsoleTransport } from './transports/console.js'
 import { createFileTransport } from './transports/file.js'
 import { createOtelTransport } from './transports/otel.js'
+import { createMemoryTransport } from './transports/memory.js'
 import { withTraceContext } from './plugins/traceContext.js'
 
 /**
@@ -88,6 +89,13 @@ function buildTransport(
         endpoint: transportConfig.endpoint,
         level: transportConfig.level,
         exportIntervalMillis: transportConfig.exportIntervalMillis,
+      })
+
+    case 'memory':
+      return createMemoryTransport({
+        name: transportConfig.name || serviceName,
+        maxSize: transportConfig.maxSize,
+        level: transportConfig.level,
       })
 
     default:
