@@ -9,6 +9,7 @@ export type {
   ConsoleTransportConfig,
   FileTransportConfig,
   OtelTransportConfig,
+  MemoryTransportConfig,
   TransportConfig,
   LoggerPluginsConfig,
   LoggerConfig,

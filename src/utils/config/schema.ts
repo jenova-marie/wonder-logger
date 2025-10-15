@@ -48,10 +48,18 @@ export const otelTransportSchema = z.object({
   exportIntervalMillis: z.number().default(5000),
 })
 
+export const memoryTransportSchema = z.object({
+  type: z.literal('memory'),
+  name: z.string().optional(),
+  maxSize: z.number().default(10000),
+  level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).optional(),
+})
+
 export const transportSchema = z.discriminatedUnion('type', [
   consoleTransportSchema,
   fileTransportSchema,
   otelTransportSchema,
+  memoryTransportSchema,
 ])
 
 /**
@@ -161,6 +169,7 @@ export type ServiceConfig = z.infer<typeof serviceSchema>
 export type ConsoleTransportConfig = z.infer<typeof consoleTransportSchema>
 export type FileTransportConfig = z.infer<typeof fileTransportSchema>
 export type OtelTransportConfig = z.infer<typeof otelTransportSchema>
+export type MemoryTransportConfig = z.infer<typeof memoryTransportSchema>
 export type TransportConfig = z.infer<typeof transportSchema>
 export type LoggerPluginsConfig = z.infer<typeof loggerPluginsSchema>
 export type LoggerConfig = z.infer<typeof loggerConfigSchema>
