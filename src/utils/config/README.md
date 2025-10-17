@@ -2,6 +2,8 @@
 
 The configuration system provides YAML-based configuration for Wonder Logger with environment variable interpolation, Zod validation, and fail-fast error handling.
 
+⭐**Recommended**: Use YAML configuration for production deployments. For dynamic or programmatic usage, see [Programmatic API](#programmatic-api).
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
@@ -11,6 +13,7 @@ The configuration system provides YAML-based configuration for Wonder Logger wit
 - [Configuration Schema](#configuration-schema)
 - [Validation](#validation)
 - [Examples](#examples)
+- [Programmatic API](#programmatic-api)
 
 ## Quick Start
 
@@ -437,6 +440,39 @@ interface OtelTransportConfig {
   exportIntervalMillis: 10000
 ```
 
+#### Memory Transport
+
+```typescript
+interface MemoryTransportConfig {
+  type: 'memory'
+  name?: string         // Registry name for querying (default: service name)
+  maxSize?: number      // Circular buffer size (default: 10000)
+  level?: string
+}
+```
+
+**Example:**
+
+```yaml
+- type: memory
+  name: api-logs
+  maxSize: 5000
+  level: debug
+```
+
+**Querying logs programmatically:**
+
+```typescript
+import { getMemoryLogs } from '@recoverysky/wonder-logger'
+
+// Query recent errors
+const errors = getMemoryLogs('api-logs', {
+  since: Date.now() - 300000,
+  level: 'error',
+  format: 'parsed'
+})
+```
+
 ### OpenTelemetry Configuration
 
 ```typescript
@@ -706,8 +742,179 @@ const sdk = createTelemetryFromConfig({
 })
 ```
 
+## Programmatic API
+
+For dynamic configuration scenarios, testing, or when you need fine-grained control, use the programmatic API instead of YAML configuration.
+
+### When to Use Programmatic API
+
+| Use Case | Reason |
+|----------|---------|
+| **Testing** | Direct control, easier mocking |
+| **Dynamic Configuration** | Runtime decision-making based on conditions |
+| **Library Development** | Full programmatic control, no file dependencies |
+| **Conditional Setup** | Different configurations based on runtime logic |
+
+### Basic Logger Setup
+
+```typescript
+import { createLogger, createConsoleTransport, createFileTransport } from '@recoverysky/wonder-logger'
+
+const logger = createLogger({
+  name: 'my-service',
+  level: 'info',
+  transports: [
+    createConsoleTransport({ pretty: true }),
+    createFileTransport({ dir: './logs', fileName: 'app.log' })
+  ]
+})
+
+logger.info('Application started')
+```
+
+### OpenTelemetry Setup
+
+```typescript
+import { createTelemetry } from '@recoverysky/wonder-logger'
+
+// Initialize BEFORE other imports
+const sdk = createTelemetry({
+  serviceName: 'my-api',
+  serviceVersion: '1.0.0',
+  environment: process.env.NODE_ENV || 'development',
+
+  tracing: {
+    exporter: 'otlp',
+    endpoint: 'http://localhost:4318/v1/traces',
+    sampleRate: 1.0
+  },
+
+  metrics: {
+    exporters: ['prometheus', 'otlp'],
+    port: 9464
+  }
+})
+```
+
+### Multiple Transports
+
+```typescript
+import {
+  createLogger,
+  createConsoleTransport,
+  createFileTransport,
+  createMemoryTransport,
+  createOtelTransport
+} from '@recoverysky/wonder-logger'
+
+const logger = createLogger({
+  name: 'my-api',
+  level: 'debug',
+  transports: [
+    // Console for development
+    createConsoleTransport({
+      pretty: process.env.NODE_ENV !== 'production',
+      level: 'debug'
+    }),
+
+    // File for persistent storage
+    createFileTransport({
+      dir: './logs',
+      fileName: 'app.log',
+      level: 'info'
+    }),
+
+    // Memory for testing/querying
+    createMemoryTransport({
+      name: 'api-logs',
+      maxSize: 5000,
+      level: 'debug'
+    }),
+
+    // OTLP for centralized collection
+    createOtelTransport({
+      serviceName: 'my-api',
+      endpoint: 'http://localhost:4318/v1/logs',
+      level: 'info'
+    })
+  ]
+})
+```
+
+### Combined Logging + Tracing
+
+```typescript
+import {
+  createLogger,
+  createTelemetry,
+  withTraceContext,
+  withSpan
+} from '@recoverysky/wonder-logger'
+
+// Initialize telemetry first
+createTelemetry({ serviceName: 'my-api' })
+
+// Create trace-aware logger
+const baseLogger = createLogger({ name: 'my-api' })
+const logger = withTraceContext(baseLogger)
+
+// Logs will include trace_id and span_id
+await withSpan('process-order', async () => {
+  logger.info('Processing order')
+  // Output: { level: 30, trace_id: "abc123", span_id: "def456", msg: "Processing order" }
+})
+```
+
+### Reading Environment Variables
+
+```typescript
+import 'dotenv/config'  // Load .env file
+import { createLogger, createTelemetry } from '@recoverysky/wonder-logger'
+
+const sdk = createTelemetry({
+  serviceName: process.env.SERVICE_NAME || 'my-api',
+  environment: process.env.NODE_ENV || 'development',
+  tracing: {
+    exporter: (process.env.OTEL_TRACE_EXPORTER as any) || 'console'
+  }
+})
+
+const logger = createLogger({
+  name: process.env.SERVICE_NAME || 'my-api',
+  level: (process.env.LOG_LEVEL as any) || 'info'
+})
+```
+
+### Hybrid Approach (YAML + Overrides)
+
+Combine YAML configuration with runtime overrides:
+
+```typescript
+import { createLoggerFromConfig, createTelemetryFromConfig } from '@recoverysky/wonder-logger'
+
+// Load base config from YAML
+const logger = createLoggerFromConfig({
+  configPath: './config/production.yaml',
+  overrides: {
+    // Override specific settings at runtime
+    level: isDebugMode ? 'debug' : undefined
+  }
+})
+
+const sdk = createTelemetryFromConfig({
+  overrides: {
+    serviceName: getServiceName(),  // Dynamic service name
+    environment: getCurrentEnvironment()
+  }
+})
+```
+
+### Complete API Reference
+
+See [Main README - API Reference](../../../README.md#api-reference) for complete documentation of all programmatic APIs.
+
 ## Related Documentation
 
-- [Logger Documentation](../logger/README.md) - Programmatic logger API
-- [OpenTelemetry Documentation](../otel/README.md) - Programmatic OTEL API
+- [Logger Documentation](../logger/README.md) - Complete Pino logger guide
+- [OpenTelemetry Documentation](../otel/README.md) - Telemetry and tracing guide
 - [Main README](../../../README.md) - Complete project documentation

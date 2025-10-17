@@ -80,68 +80,7 @@ pnpm add wonder-logger
 
 ## Quick Start
 
-### Basic Logging
-
-```typescript
-import { createLogger } from 'wonder-logger'
-
-const logger = createLogger({
-  name: 'my-service',
-  level: 'info'
-})
-
-logger.info('Application started')
-logger.info({ userId: 123 }, 'User logged in')
-logger.error({ err: new Error('Failed') }, 'Operation failed')
-```
-
-### OpenTelemetry Instrumentation
-
-```typescript
-import { createTelemetry } from 'wonder-logger'
-
-// Initialize telemetry BEFORE other imports
-const sdk = createTelemetry({
-  serviceName: 'my-api',
-  serviceVersion: '1.0.0',
-  environment: 'production',
-
-  tracing: {
-    exporter: 'otlp'  // or 'console', 'jaeger'
-  },
-
-  metrics: {
-    exporters: ['prometheus', 'otlp'],
-    port: 9090
-  }
-})
-
-// Auto-instrumentation is now active!
-// HTTP, Express, databases, and more are automatically traced
-```
-
-### Combined Logging + Tracing
-
-```typescript
-import { createLogger, createTelemetry, withTraceContext, withSpan } from 'wonder-logger'
-
-// Initialize telemetry
-createTelemetry({ serviceName: 'my-api' })
-
-// Create trace-aware logger
-const baseLogger = createLogger({ name: 'my-api' })
-const logger = withTraceContext(baseLogger)
-
-// Logs will include trace_id and span_id
-await withSpan('process-order', async () => {
-  logger.info('Processing order')
-  // { level: 30, trace_id: "abc123", span_id: "def456", msg: "Processing order" }
-})
-```
-
-### Config-Driven Setup
-
-⭐Wonder Logger⭐ supports YAML-based configuration with environment variable interpolation:
+⭐Wonder Logger⭐ uses **YAML-based configuration** for production deployments. For programmatic usage, see the [Configuration Guide](./src/utils/config/README.md#programmatic-api).
 
 **1. Create `wonder-logger.yaml` in your project root:**
 
@@ -158,14 +97,27 @@ logger:
     - password
     - token
   transports:
+    # Console transport (JSON format in production)
     - type: console
       pretty: ${LOG_PRETTY:-false}
+
+    # File transport (relative paths resolve from config file location)
     - type: file
       dir: ./logs
       fileName: app.log
+
+    # Memory transport (for testing and runtime log inspection)
+    - type: memory
+      name: ${SERVICE_NAME:-my-api}
+      maxSize: 10000
+      level: debug
+
+    # OpenTelemetry transport (send to Loki, etc.)
     - type: otel
       endpoint: ${OTEL_LOGS_ENDPOINT:-http://localhost:4318/v1/logs}
+
   plugins:
+    # Inject trace_id and span_id into logs
     traceContext: true
 
 otel:
@@ -193,25 +145,31 @@ otel:
 ```typescript
 import { createLoggerFromConfig, createTelemetryFromConfig } from 'wonder-logger'
 
-// Load from default location (wonder-logger.yaml)
+// Load from wonder-logger.yaml in project root
 const sdk = createTelemetryFromConfig()
 const logger = createLoggerFromConfig()
 
-// With custom config path
-const logger = createLoggerFromConfig({
-  configPath: './config/production.yaml'
-})
-
-// With runtime overrides
-const sdk = createTelemetryFromConfig({
-  overrides: {
-    serviceName: 'override-service',
-    environment: 'staging'
-  }
-})
+// Now start logging with full observability
+logger.info('Application started')
+logger.info({ userId: 123 }, 'User logged in')
 ```
 
-**3. Environment variable syntax:**
+**3. Query memory logs programmatically:**
+
+```typescript
+import { getMemoryLogs } from 'wonder-logger'
+
+// Query logs from last 5 minutes
+const recentLogs = getMemoryLogs('my-api', {
+  since: Date.now() - 300000,
+  level: ['error', 'warn'],
+  format: 'parsed'
+})
+
+console.log(recentLogs)
+```
+
+**4. Environment variable syntax:**
 
 ```yaml
 # Required variable (throws error if not set)
@@ -224,132 +182,56 @@ service:
   version: ${npm_package_version:-1.0.0}
 ```
 
-See [Configuration Guide](./src/utils/config/README.md) for complete documentation.
+**For programmatic API usage**, see [Configuration Guide - Programmatic API](./src/utils/config/README.md#programmatic-api).
 
-## Configuration Approaches
+## Configuration
 
-⭐Wonder Logger⭐ supports two complementary configuration approaches that work together seamlessly:
+### YAML-Based Configuration (Recommended)
 
-### 1. Programmatic API (Direct Code Configuration)
+⭐Wonder Logger⭐ uses **YAML configuration files** for production deployments, providing centralized configuration, environment variable interpolation, and easy multi-environment setup.
 
-**Best for:** Fine-grained control, dynamic configuration, testing, and programmatic use cases.
+**Key benefits:**
+- **Environment flexibility** - No code changes needed for different environments
+- **Centralized settings** - All configuration in one place
+- **Variable interpolation** - Use `${VAR_NAME}` or `${VAR_NAME:-default}` syntax
+- **Validation** - Automatic schema validation with helpful error messages
+- **Version control friendly** - Configuration as code
 
-```typescript
-import { createLogger, createTelemetry } from 'wonder-logger'
-
-// Direct configuration in code
-const sdk = createTelemetry({
-  serviceName: 'my-api',
-  serviceVersion: '1.0.0',
-  environment: process.env.NODE_ENV || 'development',
-  tracing: { exporter: 'otlp' },
-  metrics: { exporters: ['prometheus'] }
-})
-
-const logger = createLogger({
-  name: 'my-api',
-  level: process.env.LOG_LEVEL || 'info',
-  transports: [
-    createConsoleTransport({ pretty: true }),
-    createOtelTransport({ serviceName: 'my-api' })
-  ]
-})
-```
-
-**How it works:**
-- Configuration values are set directly in TypeScript/JavaScript code
-- Environment variables are read using `process.env` directly
-- Full programmatic control with IDE autocompletion
-- Library internals may also read environment variables (e.g., `OTEL_EXPORTER_OTLP_ENDPOINT`)
-
-### 2. Config-Driven API (YAML Configuration)
-
-**Best for:** Centralized configuration, multiple environments, deployment flexibility, and declarative setup.
-
-```typescript
-import { createLoggerFromConfig, createTelemetryFromConfig } from 'wonder-logger'
-
-// Load configuration from YAML file
-const sdk = createTelemetryFromConfig()
-const logger = createLoggerFromConfig()
-
-// With overrides for specific needs
-const logger = createLoggerFromConfig({
-  overrides: { level: 'debug' }  // Runtime override
-})
-```
-
-**How it works:**
-- Configuration is defined in `wonder-logger.yaml` (see [wonder-logger.example.yaml](./wonder-logger.example.yaml))
-- YAML supports environment variable interpolation: `${VAR_NAME}` and `${VAR_NAME:-default}`
-- The YAML file reads from environment variables (`.env` files or system environment)
-- Enables environment-specific configs without code changes
-
-### Relationship with `.env` Files
-
-**Both approaches work with `.env` files**, but in different ways:
-
-#### Programmatic API + `.env`
-```typescript
-// .env file
-LOG_LEVEL=debug
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-
-// Your code reads .env directly
-import 'dotenv/config'  // Load .env into process.env
-
-const logger = createLogger({
-  level: process.env.LOG_LEVEL  // Read from process.env
-})
-```
-
-#### Config-Driven API + `.env`
+**Example:**
 ```yaml
-# wonder-logger.yaml interpolates .env variables
+# wonder-logger.yaml
+service:
+  name: ${SERVICE_NAME:-my-api}
+
 logger:
-  level: ${LOG_LEVEL:-info}  # Reads LOG_LEVEL from process.env
+  level: ${LOG_LEVEL:-info}
+  transports:
+    - type: console
+      pretty: false
+    - type: memory
+      name: ${SERVICE_NAME}
+      maxSize: 10000
 
 otel:
+  enabled: true
   tracing:
-    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}
+    exporter: otlp
+    endpoint: ${OTEL_ENDPOINT}
 ```
 
 ```typescript
-// Your code only needs to load config
-import { createLoggerFromConfig } from 'wonder-logger'
+// Your application
+import { createLoggerFromConfig, createTelemetryFromConfig } from 'wonder-logger'
 
-const logger = createLoggerFromConfig()  // Reads YAML, which reads .env
+const sdk = createTelemetryFromConfig()
+const logger = createLoggerFromConfig()
 ```
 
-### When to Use Each Approach
-
-| Use Case | Recommended Approach | Reason |
-|----------|---------------------|---------|
-| **Development/Testing** | Programmatic API | Direct control, easier debugging |
-| **Production Deployment** | Config-Driven API | Environment flexibility, no code changes |
-| **Library Development** | Programmatic API | Full control, testability |
-| **Multi-Environment Apps** | Config-Driven API | Separate YAML per environment |
-| **Dynamic Configuration** | Programmatic API | Runtime decision-making |
-| **Docker/Kubernetes** | Config-Driven API | ConfigMaps, environment injection |
-| **Local .env Development** | Either | Both support `.env` files |
-
-### Best Practices
-
-1. **Use `.env` for local development secrets** (ensure `.env` is in `.gitignore`)
-2. **Use YAML templates** (`wonder-logger.example.yaml`) for documentation
-3. **Combine both approaches** when needed:
-   ```typescript
-   // Load base config from YAML, override for specific cases
-   const logger = createLoggerFromConfig({
-     configPath: './config/production.yaml',
-     overrides: {
-       level: isDebugMode ? 'debug' : 'info'
-     }
-   })
-   ```
-4. **Environment variable precedence:**
-   - Config-driven: YAML interpolation → Runtime overrides
-   - Programmatic: Code defaults → Environment variables → Runtime values
+See the complete [Configuration Guide](./src/utils/config/README.md) for:
+- Full schema documentation
+- Environment variable syntax
+- Multi-environment setup
+- [Programmatic API](./src/utils/config/README.md#programmatic-api) (for dynamic configuration)
 
 ## Architecture
 
