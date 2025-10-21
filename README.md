@@ -184,6 +184,57 @@ service:
 
 **For programmatic API usage**, see [Configuration Guide - Programmatic API](./src/utils/config/README.md#programmatic-api).
 
+## API Usage
+
+### Logging Methods - Parameter Order
+
+⚠️ **IMPORTANT**: ⭐Wonder Logger⭐ uses [Pino](https://getpino.io/) for structured logging. **The data object MUST come BEFORE the message string**:
+
+```typescript
+// ✅ CORRECT - Data object first, then message
+logger.info({ userId: 123 }, 'User logged in')
+logger.debug({ endpoint: '/api/users' }, 'Processing request')
+logger.error({ err, code: 'DB_ERROR' }, 'Database connection failed')
+
+// ❌ INCORRECT - Message first (data will be lost!)
+logger.info('User logged in', { userId: 123 })      // userId is NOT logged!
+logger.debug('Processing request', { endpoint: '/api/users' })  // endpoint is NOT logged!
+```
+
+**Why this matters:** When you pass arguments in the wrong order, Pino treats the message string as the merge object and converts your data object to `"[object Object]"` in the message field. **Your structured data is completely lost**.
+
+**API Signature:**
+```typescript
+logger.info([mergingObject], [message], [...interpolationValues])
+logger.debug([mergingObject], [message], [...interpolationValues])
+logger.error([mergingObject], [message], [...interpolationValues])
+// All log levels follow this pattern
+```
+
+This applies to all log levels: `trace()`, `debug()`, `info()`, `warn()`, `error()`, and `fatal()`.
+
+**Examples:**
+```typescript
+// Data object only (no message)
+logger.info({ userId: 123, action: 'login' })
+
+// Message only (no data)
+logger.info('Server started')
+
+// Data object + message (most common)
+logger.info({ userId: 123 }, 'User logged in')
+
+// Data object + message + interpolation
+logger.info({ userId: 123 }, 'User %s logged in at %s', username, timestamp)
+
+// Error logging (err is serialized automatically by Pino)
+try {
+  await riskyOperation()
+} catch (err) {
+  logger.error({ err, userId: 123 }, 'Operation failed')
+}
+```
+
 ## Configuration
 
 ### YAML-Based Configuration (Recommended)
