@@ -1,0 +1,1097 @@
+# Structured Logging
+
+A modular, composable logging system built on [Pino](https://getpino.io/) with first-class OpenTelemetry integration.
+
+## Philosophy
+
+This implementation follows a **modular, pluggable architecture**:
+- **Clean**: Factory functions, no singletons, no global state
+- **Composable**: Mix and match transports and plugins
+- **Fast**: Built on Pino - one of the fastest Node.js loggers
+- **Observable**: Native OpenTelemetry trace context correlation
+
+## Architecture
+
+```
+src/utils/logger/
+├── index.ts                 # Main logger factory
+├── types.ts                 # TypeScript interfaces
+├── transports/              # Output destinations
+│   ├── console.ts          # Console/stdout transport
+│   ├── file.ts             # File system transport
+│   └── otel.ts             # OpenTelemetry transport
+└── plugins/                 # Logger enhancements
+    ├── traceContext.ts     # OTEL trace correlation
+    └── morganStream.ts     # HTTP request logging
+```
+
+## Quick Start
+
+### Basic Usage
+
+```typescript
+import { createLogger } from './utils/logger'
+
+const logger = createLogger({
+  name: 'my-service',
+  level: 'info'
+})
+
+logger.info('Application started')
+logger.info({ userId: 123 }, 'User logged in')
+logger.error({ err: new Error('Failed') }, 'Operation failed')
+```
+
+**Output:**
+```json
+{"level":30,"time":1234567890,"service":"my-service","msg":"Application started"}
+{"level":30,"time":1234567891,"service":"my-service","userId":123,"msg":"User logged in"}
+{"level":50,"time":1234567892,"service":"my-service","err":{"type":"Error","message":"Failed","stack":"..."},"msg":"Operation failed"}
+```
+
+### Pretty Console Output
+
+```typescript
+import { createLogger, createConsoleTransport } from './utils/logger'
+
+const logger = createLogger({
+  name: 'my-service',
+  transports: [
+    createConsoleTransport({ pretty: true })
+  ]
+})
+
+logger.info({ userId: 123 }, 'User action')
+```
+
+**Output:**
+```
+[14:32:10.123] INFO (my-service): User action
+    userId: 123
+```
+
+## Configuration
+
+### LoggerOptions
+
+```typescript
+interface LoggerOptions {
+  name: string                      // Logger/service name (required)
+  level?: pino.LevelWithSilent     // Minimum level (default: 'info')
+  transports?: pino.StreamEntry[]  // Output destinations (default: console)
+  base?: Record<string, any>       // Fields in every log
+  serializers?: Record<string, pino.SerializerFn>  // Custom serialization
+}
+```
+
+### Log Levels
+
+From highest to lowest priority:
+
+| Level | Numeric | Usage |
+|-------|---------|-------|
+| `fatal` | 60 | Application crash |
+| `error` | 50 | Errors requiring attention |
+| `warn` | 40 | Warning conditions |
+| `info` | 30 | General informational |
+| `debug` | 20 | Debugging details |
+| `trace` | 10 | Very detailed debugging |
+| `silent` | - | Disable logging |
+
+```typescript
+const logger = createLogger({
+  name: 'api',
+  level: 'debug'  // Show debug and above
+})
+
+logger.trace('Not shown')
+logger.debug('Shown')
+logger.info('Shown')
+```
+
+## Transports
+
+### Console Transport
+
+Writes logs to stdout/stderr with optional pretty printing.
+
+```typescript
+import { createConsoleTransport } from './utils/logger/transports/console'
+
+const transport = createConsoleTransport({
+  pretty: true,           // Human-readable format (default: false)
+  level: 'info',         // Min level for this transport
+  stream: process.stdout // Output stream (default: stdout)
+})
+```
+
+**Use cases:**
+- Local development (with `pretty: true`)
+- Production stdout (with `pretty: false` for JSON)
+- Docker containers (JSON to stdout)
+
+### File Transport
+
+Writes logs to the file system with automatic rotation.
+
+```typescript
+import { createFileTransport } from './utils/logger/transports/file'
+
+const transport = createFileTransport({
+  dir: './logs',              // Log directory (default: './logs')
+  fileName: 'app.log',        // File name (default: 'app.log')
+  level: 'info',             // Min level
+  sync: false                // Synchronous writes (default: false)
+})
+```
+
+**Features:**
+- Background worker threads for async I/O
+- Automatic directory creation
+- JSON output (one log per line)
+
+**Use cases:**
+- Local debugging
+- Backup logs alongside OTEL
+- Compliance/audit trails
+
+### OpenTelemetry Transport
+
+Sends logs to OpenTelemetry Collector via OTLP protocol.
+
+```typescript
+import { createOtelTransport } from './utils/logger/transports/otel'
+
+const transport = createOtelTransport({
+  serviceName: 'my-api',
+  serviceVersion: '1.0.0',
+  environment: 'production',
+  endpoint: 'http://localhost:4318/v1/logs',  // OTLP HTTP endpoint
+  level: 'info'
+})
+```
+
+**Features:**
+- OTLP/HTTP protocol
+- Resource attributes (service.name, service.version, deployment.environment)
+- Automatic severity level mapping
+- Body and attributes separation
+
+**Use cases:**
+- Grafana Loki aggregation
+- Centralized log collection
+- Production observability
+
+### Memory Transport
+
+Stores logs in memory with queryable API for runtime inspection and debugging.
+
+```typescript
+import { createMemoryTransport, getMemoryLogs } from './utils/logger/transports/memory'
+
+const transport = createMemoryTransport({
+  name: 'api-logs',            // Registry key for queries (default: 'default')
+  maxSize: 10000,              // Circular buffer size (default: 10000)
+  level: 'info'                // Min level
+})
+```
+
+**Query logs anywhere:**
+```typescript
+import { getMemoryLogs } from './utils/logger'
+
+// Get all logs
+const logs = getMemoryLogs('api-logs')
+
+// Get logs from last 5 minutes
+const recentLogs = getMemoryLogs('api-logs', {
+  since: Date.now() - 300000
+})
+
+// Get only errors, parsed format
+const errors = getMemoryLogs('api-logs', {
+  level: 'error',
+  format: 'parsed'
+})
+
+// Combine filters
+const recentErrors = getMemoryLogs('api-logs', {
+  since: Date.now() - 60000,
+  level: ['error', 'warn'],
+  format: 'parsed'
+})
+```
+
+**Features:**
+- Circular buffer (automatic FIFO when full)
+- Registry-based access (query without transport reference)
+- Time-based filtering
+- Log level filtering (single or multiple)
+- Raw or parsed output format
+- Multiple independent stores
+
+**Utility functions:**
+```typescript
+import {
+  clearMemoryLogs,
+  getMemoryLogSize,
+  getAllMemoryStoreNames,
+  disposeMemoryStore
+} from './utils/logger'
+
+clearMemoryLogs('api-logs')           // Clear all logs
+getMemoryLogSize('api-logs')          // Get log count
+getAllMemoryStoreNames()              // List all stores
+disposeMemoryStore('api-logs')        // Dispose store and complete stream
+```
+
+**Use cases:**
+- Runtime log inspection during development
+- Test log capture and assertions
+- Debugging production issues (temp memory buffer)
+- Error tracking without external services
+
+#### RxJS Streaming
+
+The memory transport supports real-time log streaming using [RxJS](https://rxjs.dev/) Observables:
+
+```typescript
+import {
+  createLogger,
+  createMemoryTransport,
+  getMemoryLogStream,
+  filterByLevel,
+  filterSince,
+  withBackpressure
+} from './utils/logger'
+import { take, toArray } from 'rxjs'
+
+const logger = createLogger({
+  name: 'api',
+  transports: [createMemoryTransport({ name: 'stream-logs' })]
+})
+
+// Get real-time stream
+const stream$ = getMemoryLogStream('stream-logs')
+
+// Subscribe to all logs
+stream$.subscribe({
+  next: (log) => console.log('New log:', log),
+  error: (err) => console.error('Stream error:', err),
+  complete: () => console.log('Stream completed')
+})
+
+// Filter by level
+stream$.pipe(
+  filterByLevel('error'),
+  take(5)
+).subscribe(log => {
+  console.log('Error log:', log)
+})
+
+// Filter by timestamp
+const cutoff = Date.now()
+stream$.pipe(
+  filterSince(cutoff),
+  take(10)
+).subscribe(log => {
+  console.log('Recent log:', log)
+})
+
+// Combine operators
+stream$.pipe(
+  filterSince(Date.now()),
+  filterByLevel(['warn', 'error']),
+  withBackpressure({ throttleMs: 1000 }),
+  take(20)
+).subscribe(log => {
+  console.log('Filtered log:', log)
+})
+```
+
+**Stream Operators:**
+
+**`filterByLevel(level)`** - Filter logs by severity level
+
+```typescript
+// Single level
+stream$.pipe(filterByLevel('error'))
+
+// Multiple levels
+stream$.pipe(filterByLevel(['error', 'warn']))
+```
+
+**`filterSince(timestamp)`** - Filter logs by timestamp
+
+```typescript
+const fiveMinutesAgo = Date.now() - 300000
+stream$.pipe(filterSince(fiveMinutesAgo))
+```
+
+**`withBackpressure(options)`** - Manage stream backpressure
+
+```typescript
+// Throttle emissions
+stream$.pipe(
+  withBackpressure({ throttleMs: 1000 })  // Max 1 log per second
+)
+
+// Buffer emissions
+stream$.pipe(
+  withBackpressure({ bufferMs: 500 })  // Emit arrays every 500ms
+)
+```
+
+**Cleanup:**
+
+When done with a memory store, dispose it to release resources and complete the stream:
+
+```typescript
+import { disposeMemoryStore } from './utils/logger'
+
+// Completes all subscribers and removes store
+disposeMemoryStore('stream-logs')
+```
+
+**Best Practices:**
+
+1. **Always unsubscribe** - Prevent memory leaks by unsubscribing when done
+   ```typescript
+   const subscription = stream$.subscribe(log => handleLog(log))
+
+   // Later, when done
+   subscription.unsubscribe()
+   ```
+
+2. **Use operators to limit emissions** - Always use `take()` or similar operators
+   ```typescript
+   stream$.pipe(take(100)).subscribe(...)  // Stop after 100 logs
+   ```
+
+3. **Apply backpressure for high-volume logs** - Prevent overwhelming subscribers
+   ```typescript
+   stream$.pipe(
+     withBackpressure({ throttleMs: 1000 })
+   ).subscribe(...)
+   ```
+
+4. **Dispose stores on shutdown** - Clean up resources properly
+   ```typescript
+   process.on('SIGTERM', () => {
+     disposeMemoryStore('my-store')
+   })
+   ```
+
+5. **Combine with regular transports** - Memory streaming doesn't replace persistent logging
+   ```typescript
+   const logger = createLogger({
+     name: 'api',
+     transports: [
+       createOtelTransport({ ... }),      // Primary logging
+       createMemoryTransport({ ... })     // Real-time monitoring
+     ]
+   })
+   ```
+
+**Use cases:**
+- Real-time log monitoring dashboards
+- Live debugging in development
+- Streaming log analysis
+- Test log assertions with async events
+- Backpressure-controlled log processing
+- Alert systems (errors, rate limiting, pattern detection)
+
+## Multiple Transports
+
+Combine multiple outputs for different purposes:
+
+```typescript
+import {
+  createLogger,
+  createConsoleTransport,
+  createFileTransport,
+  createOtelTransport,
+  createMemoryTransport
+} from './utils/logger'
+
+const logger = createLogger({
+  name: 'my-api',
+  transports: [
+    // Pretty console for local dev
+    createConsoleTransport({ pretty: true, level: 'debug' }),
+
+    // File for all logs
+    createFileTransport({ dir: './logs', fileName: 'all.log' }),
+
+    // OTEL for warnings and above
+    createOtelTransport({
+      serviceName: 'my-api',
+      level: 'warn',
+      endpoint: 'http://localhost:4318/v1/logs'
+    }),
+
+    // Memory for runtime inspection
+    createMemoryTransport({
+      name: 'api-debug',
+      maxSize: 5000
+    })
+  ]
+})
+```
+
+## Plugins
+
+### Trace Context Plugin
+
+Automatically injects OpenTelemetry trace and span IDs into logs.
+
+```typescript
+import { createLogger, withTraceContext } from './utils/logger'
+import { createTelemetry, withSpan } from './utils/otel'
+
+// Initialize OTEL
+createTelemetry({ serviceName: 'my-api' })
+
+// Create trace-aware logger
+const baseLogger = createLogger({ name: 'my-api' })
+const logger = withTraceContext(baseLogger)
+
+// Logs include trace context
+await withSpan('operation', async () => {
+  logger.info('Inside traced operation')
+  // Output: {...,"trace_id":"abc123","span_id":"def456","msg":"Inside traced operation"}
+})
+```
+
+**Injected fields:**
+- `trace_id` - OpenTelemetry trace ID (hex string)
+- `span_id` - Current span ID (hex string)
+- `trace_flags` - Trace flags (hex string)
+
+**Use cases:**
+- Correlating logs with traces in Grafana
+- Distributed tracing across services
+- Debugging request flows
+
+### Morgan Stream Plugin
+
+Integrates with [Morgan](https://github.com/expressjs/morgan) HTTP request logger.
+
+```typescript
+import express from 'express'
+import morgan from 'morgan'
+import { createLogger, createMorganStream } from './utils/logger'
+
+const logger = createLogger({ name: 'api' })
+const morganStream = createMorganStream(logger)
+
+const app = express()
+app.use(morgan('combined', { stream: morganStream }))
+```
+
+**Features:**
+- HTTP requests logged at `info` level
+- Standard Morgan formats (combined, common, dev, etc.)
+- Works with any Pino logger
+
+## Child Loggers
+
+Create loggers with additional context:
+
+```typescript
+const logger = createLogger({ name: 'api' })
+
+// Child logger with request context
+const requestLogger = logger.child({ requestId: 'req-123', userId: 456 })
+
+requestLogger.info('Processing request')
+// Output: {...,"requestId":"req-123","userId":456,"msg":"Processing request"}
+
+// Nested child loggers
+const operationLogger = requestLogger.child({ operation: 'payment' })
+operationLogger.info('Charging card')
+// Output: {...,"requestId":"req-123","userId":456,"operation":"payment","msg":"Charging card"}
+```
+
+**Use cases:**
+- Request-scoped logging
+- User-scoped logging
+- Operation-scoped logging
+
+## Error Logging
+
+Pino has built-in error serialization:
+
+```typescript
+const logger = createLogger({ name: 'api' })
+
+try {
+  throw new Error('Database connection failed')
+} catch (err) {
+  logger.error({ err }, 'Failed to connect')
+}
+```
+
+**Output:**
+```json
+{
+  "level": 50,
+  "time": 1234567890,
+  "service": "api",
+  "err": {
+    "type": "Error",
+    "message": "Database connection failed",
+    "stack": "Error: Database connection failed\n    at ..."
+  },
+  "msg": "Failed to connect"
+}
+```
+
+**Custom error fields:**
+```typescript
+const logger = createLogger({
+  name: 'api',
+  serializers: {
+    err: (err: Error) => ({
+      message: err.message,
+      stack: err.stack,
+      code: (err as any).code,
+      statusCode: (err as any).statusCode
+    })
+  }
+})
+```
+
+## Base Fields
+
+Add fields to every log entry:
+
+```typescript
+const logger = createLogger({
+  name: 'api',
+  base: {
+    version: '1.2.3',
+    region: 'us-east-1',
+    instance: 'i-abc123'
+  }
+})
+
+logger.info('Started')
+// Output: {...,"service":"api","version":"1.2.3","region":"us-east-1","instance":"i-abc123","msg":"Started"}
+```
+
+## Structured Data
+
+Log structured data instead of concatenating strings:
+
+**❌ Bad:**
+```typescript
+logger.info(`User ${userId} logged in from ${ip}`)
+```
+
+**✅ Good:**
+```typescript
+logger.info({ userId, ip }, 'User logged in')
+```
+
+**Why?**
+- Machine-parseable
+- Queryable in Loki/Elasticsearch
+- Type-safe with TypeScript
+- Automatic serialization
+
+## Testing
+
+### Capturing Logs with Memory Transport
+
+The easiest way to test logs is using the memory transport:
+
+```typescript
+import { createLogger, createMemoryTransport, getMemoryLogs } from './utils/logger'
+
+describe('My Service', () => {
+  it('should log user actions', async () => {
+    const logger = createLogger({
+      name: 'test',
+      transports: [createMemoryTransport({ name: 'test-logs' })]
+    })
+
+    logger.info({ userId: 123 }, 'User action')
+
+    // Wait for async writes
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    const logs = getMemoryLogs('test-logs', { format: 'parsed' })
+    expect(logs).toHaveLength(1)
+    expect(logs[0].userId).toBe(123)
+    expect(logs[0].message).toBe('User action')
+  })
+})
+```
+
+### Traditional Stream Capture
+
+```typescript
+import { createLogger } from './utils/logger'
+import { Writable } from 'stream'
+
+describe('My Service', () => {
+  it('should log user actions', async () => {
+    const logs: any[] = []
+    const stream = new Writable({
+      write(chunk, encoding, callback) {
+        logs.push(JSON.parse(chunk.toString()))
+        callback()
+      }
+    })
+
+    const logger = createLogger({
+      name: 'test',
+      transports: [{
+        level: 'info',
+        stream
+      }]
+    })
+
+    logger.info({ userId: 123 }, 'User action')
+
+    expect(logs).toHaveLength(1)
+    expect(logs[0].userId).toBe(123)
+    expect(logs[0].msg).toBe('User action')
+  })
+})
+```
+
+### Silent Logger
+
+Disable logging in tests:
+
+```typescript
+const logger = createLogger({
+  name: 'test',
+  level: 'silent'
+})
+
+logger.info('Not logged')  // No output
+```
+
+### Testing with RxJS Streams
+
+Test asynchronous log events with RxJS:
+
+```typescript
+import { createLogger, createMemoryTransport, getMemoryLogStream, filterByLevel } from './utils/logger'
+import { firstValueFrom, take, toArray } from 'rxjs'
+
+describe('Error Handling', () => {
+  it('should log errors during async operations', async () => {
+    const logger = createLogger({
+      name: 'test',
+      transports: [createMemoryTransport({ name: 'test-stream' })]
+    })
+
+    const stream$ = getMemoryLogStream('test-stream')
+    const errorLogs$ = stream$.pipe(
+      filterByLevel('error'),
+      take(1)
+    )
+
+    const errorPromise = firstValueFrom(errorLogs$)
+
+    // Trigger error
+    try {
+      await someOperationThatFails()
+    } catch (err) {
+      logger.error({ err }, 'Operation failed')
+    }
+
+    const errorLog = await errorPromise
+    expect(errorLog.msg).toBe('Operation failed')
+    expect(errorLog.err).toBeDefined()
+  })
+
+  it('should emit multiple logs in order', async () => {
+    const logger = createLogger({
+      name: 'test',
+      transports: [createMemoryTransport({ name: 'test-order' })]
+    })
+
+    const stream$ = getMemoryLogStream('test-order')
+    const logs$ = stream$.pipe(take(3), toArray())
+
+    const logsPromise = firstValueFrom(logs$)
+
+    logger.info('First')
+    logger.info('Second')
+    logger.info('Third')
+
+    const logs = await logsPromise
+    expect(logs[0].msg).toBe('First')
+    expect(logs[1].msg).toBe('Second')
+    expect(logs[2].msg).toBe('Third')
+  })
+})
+```
+
+## Environment Variables
+
+```bash
+# Set log level
+LOG_LEVEL=debug
+
+# OTEL endpoint
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/logs
+```
+
+```typescript
+const logger = createLogger({
+  name: 'api',
+  level: (process.env.LOG_LEVEL as pino.LevelWithSilent) || 'info'
+})
+```
+
+## Performance
+
+Pino is one of the fastest Node.js loggers:
+- **Async by default** - Background worker threads
+- **JSON serialization** - Fast native JSON.stringify
+- **Lazy formatting** - Pretty printing only when needed
+- **Low overhead** - Minimal performance impact
+
+**Benchmarks:**
+- 30,000+ logs/second (JSON mode)
+- 20,000+ logs/second (pretty mode)
+- < 1ms per log entry
+
+## Production Best Practices
+
+1. **Use JSON in production**
+   ```typescript
+   createConsoleTransport({ pretty: false })
+   ```
+
+2. **Set appropriate levels**
+   ```typescript
+   createLogger({
+     level: process.env.NODE_ENV === 'production' ? 'info' : 'debug'
+   })
+   ```
+
+3. **Use OTEL for centralized logs**
+   ```typescript
+   createOtelTransport({ serviceName: 'api' })
+   ```
+
+4. **Include trace context**
+   ```typescript
+   const logger = withTraceContext(baseLogger)
+   ```
+
+5. **Use structured data**
+   ```typescript
+   logger.info({ userId, orderId }, 'Order placed')  // Good
+   logger.info(`Order ${orderId} placed by ${userId}`)  // Bad
+   ```
+
+6. **Child loggers for context**
+   ```typescript
+   const requestLogger = logger.child({ requestId })
+   ```
+
+7. **Error serialization**
+   ```typescript
+   logger.error({ err }, 'Operation failed')
+   ```
+
+## Examples
+
+### Express API
+
+```typescript
+import express from 'express'
+import morgan from 'morgan'
+import { createLogger, createOtelTransport, withTraceContext, createMorganStream } from './utils/logger'
+import { createTelemetry } from './utils/otel'
+
+// Initialize telemetry
+createTelemetry({ serviceName: 'api' })
+
+// Create logger
+const baseLogger = createLogger({
+  name: 'api',
+  transports: [
+    createOtelTransport({ serviceName: 'api' })
+  ]
+})
+
+const logger = withTraceContext(baseLogger)
+
+const app = express()
+
+// HTTP request logging
+app.use(morgan('combined', { stream: createMorganStream(logger) }))
+
+// Request-scoped logging
+app.use((req, res, next) => {
+  req.logger = logger.child({ requestId: req.headers['x-request-id'] })
+  next()
+})
+
+app.get('/users/:id', async (req, res) => {
+  req.logger.info({ userId: req.params.id }, 'Fetching user')
+  const user = await db.users.findById(req.params.id)
+  res.json(user)
+})
+
+app.listen(3000, () => {
+  logger.info({ port: 3000 }, 'Server started')
+})
+```
+
+### Background Worker
+
+```typescript
+import { createLogger, createFileTransport, createOtelTransport } from './utils/logger'
+
+const logger = createLogger({
+  name: 'worker',
+  transports: [
+    createFileTransport({ dir: './logs', fileName: 'worker.log' }),
+    createOtelTransport({ serviceName: 'worker' })
+  ]
+})
+
+async function processQueue() {
+  logger.info('Worker started')
+
+  while (true) {
+    const job = await queue.pop()
+    const jobLogger = logger.child({ jobId: job.id, jobType: job.type })
+
+    try {
+      jobLogger.info('Processing job')
+      await job.execute()
+      jobLogger.info({ duration: job.duration }, 'Job completed')
+    } catch (err) {
+      jobLogger.error({ err }, 'Job failed')
+    }
+  }
+}
+```
+
+### Runtime Debugging with Memory Transport
+
+```typescript
+import {
+  createLogger,
+  createMemoryTransport,
+  getMemoryLogs,
+  clearMemoryLogs
+} from './utils/logger'
+
+// Setup logger with memory transport
+const logger = createLogger({
+  name: 'api',
+  transports: [
+    createMemoryTransport({ name: 'debug-logs', maxSize: 1000 })
+  ]
+})
+
+// Application code logs as usual
+app.get('/api/users/:id', async (req, res) => {
+  logger.info({ userId: req.params.id }, 'Fetching user')
+  const user = await db.users.findById(req.params.id)
+  logger.info({ found: !!user }, 'User query complete')
+  res.json(user)
+})
+
+// Debug endpoint to inspect recent logs
+app.get('/debug/logs', (req, res) => {
+  const { since, level, format } = req.query
+
+  const logs = getMemoryLogs('debug-logs', {
+    since: since ? parseInt(since) : Date.now() - 60000,  // Last minute
+    level: level || undefined,
+    format: format === 'parsed' ? 'parsed' : 'raw'
+  })
+
+  res.json({
+    count: logs.length,
+    logs
+  })
+})
+
+// Clear logs endpoint
+app.post('/debug/logs/clear', (req, res) => {
+  clearMemoryLogs('debug-logs')
+  res.json({ message: 'Logs cleared' })
+})
+```
+
+### Real-time Error Monitoring with RxJS
+
+```typescript
+import {
+  createLogger,
+  createMemoryTransport,
+  getMemoryLogStream,
+  filterByLevel,
+  withBackpressure
+} from './utils/logger'
+import { filter } from 'rxjs'
+
+// Setup logger with memory transport
+const logger = createLogger({
+  name: 'api',
+  transports: [
+    createMemoryTransport({ name: 'monitoring', maxSize: 5000 })
+  ]
+})
+
+// Real-time error alerting
+const errorStream$ = getMemoryLogStream('monitoring').pipe(
+  filterByLevel('error'),
+  withBackpressure({ throttleMs: 5000 })  // Max 1 alert per 5 seconds
+)
+
+errorStream$.subscribe(log => {
+  // Send to alerting service (Slack, PagerDuty, etc.)
+  sendAlert({
+    level: 'critical',
+    message: log.msg,
+    error: log.err,
+    timestamp: log.time,
+    service: log.service
+  })
+})
+
+// Monitor specific error patterns
+const databaseErrorStream$ = getMemoryLogStream('monitoring').pipe(
+  filterByLevel('error'),
+  filter(log => log.msg.includes('database') || log.err?.code === 'ECONNREFUSED')
+)
+
+databaseErrorStream$.subscribe(log => {
+  // Database-specific alerting
+  notifyDatabaseTeam(log)
+})
+
+// Batch log analysis
+const batchStream$ = getMemoryLogStream('monitoring').pipe(
+  filterByLevel(['warn', 'error']),
+  withBackpressure({ bufferMs: 60000 })  // Batch every minute
+)
+
+batchStream$.subscribe(logs => {
+  // Analyze trends in batched logs
+  const errorCount = logs.filter(l => l.level === 50).length
+  const warnCount = logs.filter(l => l.level === 40).length
+
+  if (errorCount > 10) {
+    sendAlert({
+      level: 'high',
+      message: `High error rate: ${errorCount} errors in last minute`
+    })
+  }
+})
+
+// Application shutdown cleanup
+process.on('SIGTERM', () => {
+  disposeMemoryStore('monitoring')
+  process.exit(0)
+})
+```
+
+## Troubleshooting
+
+### Logs not appearing
+
+1. Check log level: `logger.level`
+2. Verify transport configuration
+3. Check stream destination (file permissions, network)
+
+### Pretty printing not working
+
+```typescript
+// Must use createConsoleTransport
+createConsoleTransport({ pretty: true })
+
+// NOT this
+{ stream: process.stdout }  // No pretty printing
+```
+
+### OTEL transport errors
+
+1. Verify collector is running
+2. Check endpoint URL
+3. Verify OTLP HTTP port (usually 4318, not 4317 for gRPC)
+
+### File transport issues
+
+1. Check directory permissions
+2. Verify directory exists (auto-created)
+3. Check disk space
+
+## API Reference
+
+```typescript
+// Logger factory
+createLogger(options: LoggerOptions): pino.Logger
+
+// Transports
+createConsoleTransport(options?: ConsoleTransportOptions): pino.StreamEntry
+createFileTransport(options?: FileTransportOptions): pino.StreamEntry
+createOtelTransport(options: OtelTransportOptions): pino.StreamEntry
+createMemoryTransport(options?: MemoryTransportOptions): pino.StreamEntry
+
+// Memory transport queries
+getMemoryLogs(name: string, options?: MemoryQueryOptions): RawLogEntry[] | ParsedLogEntry[]
+clearMemoryLogs(name: string): void
+getMemoryLogSize(name: string): number
+getAllMemoryStoreNames(): string[]
+disposeMemoryStore(name: string): void
+
+// Memory transport streaming (RxJS)
+getMemoryLogStream(name: string): Observable<RawLogEntry>
+filterByLevel(level: string | string[]): MonoTypeOperatorFunction<RawLogEntry>
+filterSince(timestamp: number): MonoTypeOperatorFunction<RawLogEntry>
+withBackpressure(options: BackpressureOptions): OperatorFunction<RawLogEntry, RawLogEntry | RawLogEntry[]>
+
+// Plugins
+withTraceContext(logger: pino.Logger): pino.Logger
+createMorganStream(logger: pino.Logger): NodeJS.WritableStream
+
+// Types
+interface LoggerOptions
+interface ConsoleTransportOptions
+interface FileTransportOptions
+interface OtelTransportOptions
+interface MemoryTransportOptions
+interface MemoryQueryOptions
+interface RawLogEntry
+interface ParsedLogEntry
+interface BackpressureOptions {
+  throttleMs?: number
+  bufferMs?: number
+}
+```
+
+## Migration from Console.log
+
+```typescript
+// Old
+console.log('User logged in:', userId)
+console.error('Error:', err)
+
+// New
+logger.info({ userId }, 'User logged in')
+logger.error({ err }, 'Error occurred')
+```
+
+## License
+
+ISC
+
+---
+
+**Part of the RecoverySky Server toolkit**
