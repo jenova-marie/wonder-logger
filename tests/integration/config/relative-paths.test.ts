@@ -54,7 +54,13 @@ otel:
     fs.writeFileSync(configPath, configContent, 'utf-8')
 
     // Load config
-    const config = loadConfigFromFile(configPath)
+    const configResult = loadConfigFromFile(configPath)
+
+    // Ensure config loaded successfully
+    expect(configResult.ok).toBe(true)
+    if (!configResult.ok) throw new Error('Config loading failed')
+
+    const config = configResult.value
 
     // Verify _configDir is set to the directory containing the config file
     expect(config._configDir).toBe(configDir)
@@ -82,7 +88,13 @@ otel:
     fs.writeFileSync(configPath, configContent, 'utf-8')
 
     // Load config
-    const config = loadConfigFromFile(configPath)
+    const configResult = loadConfigFromFile(configPath)
+
+    // Ensure config loaded successfully
+    expect(configResult.ok).toBe(true)
+    if (!configResult.ok) throw new Error('Config loading failed')
+
+    const config = configResult.value
 
     // Verify _configDir is set
     expect(config._configDir).toBe(configDir)
@@ -227,7 +239,13 @@ otel:
       fs.writeFileSync(localConfigPath, configContent, 'utf-8')
 
       // Load config using default discovery (should find it in cwd)
-      const config = loadConfig({ required: true })
+      const configResult = loadConfig({ required: true })
+
+      // Ensure config loaded successfully
+      expect(configResult.ok).toBe(true)
+      if (!configResult.ok) throw new Error('Config loading failed')
+
+      const config = configResult.value
 
       // Verify _configDir is set to current directory
       expect(config._configDir).toBe(configDir)

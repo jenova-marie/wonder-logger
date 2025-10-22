@@ -4,28 +4,31 @@
  * Parses YAML config files and replaces environment variable references.
  *
  * Supported formats:
- * - ${VAR_NAME} - Required variable (throws if not set)
+ * - ${VAR_NAME} - Required variable (returns error if not set)
  * - ${VAR_NAME:-default} - Optional variable with default value
  */
 
 import { parse as parseYAML } from 'yaml'
+import { missingEnvVar, invalidEnvVarSyntax } from './errors.js'
+import { ok, err, type ConfigResult } from './result.js'
 
 /**
  * Interpolates environment variables in a string
  *
  * @param value - String potentially containing env var references
- * @returns String with env vars replaced
- * @throws Error if required env var is not set
+ * @returns Result containing string with env vars replaced, or error if required var is not set
  *
  * @example
- * interpolateEnvVars('${LOG_LEVEL:-info}') // returns 'info' if LOG_LEVEL not set
- * interpolateEnvVars('${SERVICE_NAME}') // throws if SERVICE_NAME not set
+ * interpolateEnvVars('${LOG_LEVEL:-info}') // ok('info') if LOG_LEVEL not set
+ * interpolateEnvVars('${SERVICE_NAME}') // err(missingEnvVar(...)) if SERVICE_NAME not set
  */
-export function interpolateEnvVars(value: string): string {
+export function interpolateEnvVars(value: string): ConfigResult<string> {
   // Match ${VAR_NAME} or ${VAR_NAME:-default}
   const envVarRegex = /\$\{([^}:]+)(?::-(.*?))?\}/g
 
-  return value.replace(envVarRegex, (match, varName, defaultValue) => {
+  let error: ReturnType<typeof missingEnvVar> | null = null
+
+  const result = value.replace(envVarRegex, (match, varName, defaultValue) => {
     const envValue = process.env[varName]
 
     if (envValue !== undefined) {
@@ -36,64 +39,89 @@ export function interpolateEnvVars(value: string): string {
       return defaultValue
     }
 
-    throw new Error(
-      `Required environment variable '${varName}' is not set. ` +
-        `Either set the variable or provide a default value: \${${varName}:-default}`
-    )
+    error = missingEnvVar(varName, match)
+    return match // Return original to avoid mangling
   })
+
+  if (error) {
+    return err(error)
+  }
+
+  return ok(result)
 }
 
 /**
  * Recursively interpolates environment variables in an object
  *
  * @param obj - Object potentially containing env var references in string values
- * @returns Object with all string values interpolated
+ * @returns Result containing object with all string values interpolated, or error
  */
-export function interpolateObject(obj: any): any {
+export function interpolateObject(obj: any): ConfigResult<any> {
   if (typeof obj === 'string') {
-    return interpolateEnvVars(obj)
+    const result = interpolateEnvVars(obj)
+    if (!result.ok) {
+      return result
+    }
+    return ok(result.value)
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => interpolateObject(item))
+    const results: any[] = []
+    for (const item of obj) {
+      const result = interpolateObject(item)
+      if (!result.ok) {
+        return result
+      }
+      results.push(result.value)
+    }
+    return ok(results)
   }
 
   if (obj !== null && typeof obj === 'object') {
     const result: any = {}
     for (const [key, value] of Object.entries(obj)) {
-      result[key] = interpolateObject(value)
+      const interpolated = interpolateObject(value)
+      if (!interpolated.ok) {
+        return interpolated
+      }
+      result[key] = interpolated.value
     }
-    return result
+    return ok(result)
   }
 
-  return obj
+  return ok(obj)
 }
 
 /**
  * Parses YAML string and interpolates environment variables
  *
  * @param yamlContent - Raw YAML string
- * @returns Parsed and interpolated object
- * @throws Error if YAML is invalid or required env vars are missing
+ * @returns Result containing parsed and interpolated object, or error
  *
  * @example
- * const config = parseYamlWithEnv(`
+ * const result = parseYamlWithEnv(`
  *   service:
  *     name: \${SERVICE_NAME}
  *     environment: \${NODE_ENV:-development}
  * `)
+ * if (result.ok) {
+ *   const config = result.value
+ * }
  */
-export function parseYamlWithEnv(yamlContent: string): any {
+export function parseYamlWithEnv(yamlContent: string): ConfigResult<any> {
+  let parsed: any
   try {
     // Parse YAML
-    const parsed = parseYAML(yamlContent)
-
-    // Interpolate environment variables
-    return interpolateObject(parsed)
+    parsed = parseYAML(yamlContent)
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to parse YAML config: ${error.message}`)
-    }
-    throw error
+    // YAML parsing error - use a generic error message
+    return err(
+      invalidEnvVarSyntax(
+        error instanceof Error ? error.message : String(error)
+      )
+    )
   }
+
+  // Interpolate environment variables
+  return interpolateObject(parsed)
 }

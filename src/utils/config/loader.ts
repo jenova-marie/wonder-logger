@@ -8,6 +8,12 @@ import fs from 'fs'
 import path from 'path'
 import { parseYamlWithEnv } from './parser.js'
 import { configSchema, type WonderLoggerConfig } from './schema.js'
+import {
+  fileNotFound,
+  fileReadError,
+  schemaValidation,
+} from './errors.js'
+import { ok, err, type ConfigResult } from './result.js'
 
 /**
  * Default config file name
@@ -18,29 +24,32 @@ export const DEFAULT_CONFIG_FILE = 'wonder-logger.yaml'
  * Finds the config file in the current working directory
  *
  * @param fileName - Config file name (defaults to 'wonder-logger.yaml')
- * @returns Absolute path to config file, or null if not found
+ * @returns Result containing absolute path to config file, or error if not found
  */
-export function findConfigFile(fileName: string = DEFAULT_CONFIG_FILE): string | null {
+export function findConfigFile(
+  fileName: string = DEFAULT_CONFIG_FILE
+): ConfigResult<string> {
   const configPath = path.resolve(process.cwd(), fileName)
 
   if (fs.existsSync(configPath)) {
-    return configPath
+    return ok(configPath)
   }
 
-  return null
+  return err(fileNotFound(configPath))
 }
 
 /**
  * Loads and validates config from a file
  *
  * @param filePath - Absolute path to config file
- * @returns Validated configuration object with _configDir metadata
- * @throws Error if file doesn't exist, is invalid YAML, or fails validation
+ * @returns Result containing validated configuration object with _configDir metadata, or error
  */
-export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
+export function loadConfigFromFile(
+  filePath: string
+): ConfigResult<WonderLoggerConfig> {
   // Check if file exists
   if (!fs.existsSync(filePath)) {
-    throw new Error(`Config file not found: ${filePath}`)
+    return err(fileNotFound(filePath))
   }
 
   // Capture the directory containing the config file
@@ -51,34 +60,34 @@ export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
   try {
     yamlContent = fs.readFileSync(filePath, 'utf-8')
   } catch (error) {
-    throw new Error(
-      `Failed to read config file '${filePath}': ${error instanceof Error ? error.message : String(error)}`
+    return err(
+      fileReadError(
+        filePath,
+        error instanceof Error ? error : new Error(String(error))
+      )
     )
   }
 
   // Parse YAML with env var interpolation
-  let parsed: any
-  try {
-    parsed = parseYamlWithEnv(yamlContent)
-  } catch (error) {
-    throw new Error(
-      `Failed to parse config file '${filePath}': ${error instanceof Error ? error.message : String(error)}`
-    )
+  const parseResult = parseYamlWithEnv(yamlContent)
+  if (!parseResult.ok) {
+    // parseResult.error is already a ConfigError - propagate directly
+    return parseResult
   }
+
+  const parsed = parseResult.value
 
   // Add config directory as metadata for relative path resolution
   parsed._configDir = configDir
 
   // Validate against schema
-  const result = configSchema.safeParse(parsed)
+  const zodResult = configSchema.safeParse(parsed)
 
-  if (!result.success) {
-    const errors = result.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`).join('\n')
-
-    throw new Error(`Config validation failed for '${filePath}':\n${errors}`)
+  if (!zodResult.success) {
+    return err(schemaValidation(filePath, zodResult.error))
   }
 
-  return result.data
+  return ok(zodResult.data)
 }
 
 /**
@@ -87,37 +96,35 @@ export function loadConfigFromFile(filePath: string): WonderLoggerConfig {
  * @param options - Optional configuration
  * @param options.configPath - Custom config file path
  * @param options.required - Whether config file is required (defaults to true)
- * @returns Validated configuration object, or null if not required and not found
- * @throws Error if config is required but not found, or if validation fails
+ * @returns Result containing validated configuration object, or error
  *
  * @example
  * // Load from default location (wonder-logger.yaml in cwd)
- * const config = loadConfig()
+ * const result = loadConfig()
+ * if (result.ok) {
+ *   const config = result.value
+ * }
  *
  * // Load from custom path
- * const config = loadConfig({ configPath: './config/custom.yaml' })
+ * const result = loadConfig({ configPath: './config/custom.yaml' })
  *
- * // Optional config (returns null if not found)
- * const config = loadConfig({ required: false })
+ * // Optional config (returns FileNotFound error if not found)
+ * const result = loadConfig({ required: false })
  */
 export function loadConfig(options: {
   configPath?: string
   required?: boolean
-} = {}): WonderLoggerConfig | null {
+} = {}): ConfigResult<WonderLoggerConfig> {
   const { configPath, required = true } = options
 
   // Use provided path or discover default
-  const filePath = configPath || findConfigFile()
+  const findResult = configPath
+    ? ok(configPath)
+    : findConfigFile()
 
-  if (!filePath) {
-    if (required) {
-      throw new Error(
-        `Config file '${DEFAULT_CONFIG_FILE}' not found in current directory. ` +
-          `Please create a config file or specify a custom path.`
-      )
-    }
-    return null
+  if (!findResult.ok) {
+    return findResult
   }
 
-  return loadConfigFromFile(filePath)
+  return loadConfigFromFile(findResult.value)
 }
