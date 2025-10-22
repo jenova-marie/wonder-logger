@@ -717,6 +717,7 @@ MIT © [jenova-marie](https://github.com/jenova-marie)
 - [Documentation](https://github.com/jenova-marie/wonder-logger#readme)
 - [Issue Tracker](https://github.com/jenova-marie/wonder-logger/issues)
 - [Discussions](https://github.com/jenova-marie/wonder-logger/discussions)
+- [Security Policy](./content/SECURITY.md)
 
 ---
 

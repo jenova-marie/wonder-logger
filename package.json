@@ -82,7 +82,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@jenova-marie/ts-rust-result": "2.2.0",
+    "@jenova-marie/ts-rust-result": "2.2.2",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/auto-instrumentations-node": "^0.65.0",
     "@opentelemetry/exporter-jaeger": "^2.1.0",
