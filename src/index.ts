@@ -8,6 +8,40 @@
  */
 
 // ============================================================================
+// ts-rust-result Core Exports
+// ============================================================================
+
+// Re-export ts-rust-result core types for consumers
+export { ok, err, type Result } from '@jenova-marie/ts-rust-result'
+
+// Re-export error infrastructure
+export {
+  error,
+  fileNotFound,
+  fileReadError,
+  invalidJSON,
+  fromError,
+  tryResultSafe,
+  toSentryError,
+  type DomainError
+} from '@jenova-marie/ts-rust-result/errors'
+
+// Re-export observability helpers
+export {
+  toLogContext,
+  toSpanAttributes,
+  toMetricLabels
+} from '@jenova-marie/ts-rust-result/observability'
+
+// Export project-specific error types
+export type { ConfigError } from './utils/config/errors.js'
+export type { JSONError } from './utils/json/errors.js'
+
+// Export domain-specific Result types
+export type { ConfigResult } from './utils/config/result.js'
+export type { JSONResult } from './utils/json/result.js'
+
+// ============================================================================
 // Logger Imports (for default export)
 // ============================================================================
 
@@ -120,6 +154,16 @@ export {
   type OtlpMetricsExporterConfig,
   type InstrumentationConfig,
 } from "./utils/config/index.js";
+
+// ============================================================================
+// JSON Parser Module
+// ============================================================================
+
+export {
+  parseJSONResponse,
+  validateJSONStructure,
+  extractJSON,
+} from "./utils/jsonParser.js";
 
 // ============================================================================
 // Default Export
