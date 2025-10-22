@@ -131,13 +131,19 @@ describe('jsonParser', () => {
       it('should parse valid JSON object', () => {
         const input = '{"name": "test", "value": 123}'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ name: 'test', value: 123 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ name: 'test', value: 123 })
+        }
       })
 
       it('should parse valid JSON array', () => {
         const input = '[1, 2, 3, 4]'
         const result = parseJSONResponse(input)
-        expect(result).toEqual([1, 2, 3, 4])
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual([1, 2, 3, 4])
+        }
       })
 
       it('should parse JSON with type parameter', () => {
@@ -147,7 +153,10 @@ describe('jsonParser', () => {
         }
         const input = '{"name": "Alice", "age": 30}'
         const result = parseJSONResponse<User>(input)
-        expect(result).toEqual({ name: 'Alice', age: 30 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ name: 'Alice', age: 30 })
+        }
       })
     })
 
@@ -156,31 +165,46 @@ describe('jsonParser', () => {
         const input = `{"description": "This has
 a newline", "value": 1}`
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ description: 'This has a newline', value: 1 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ description: 'This has a newline', value: 1 })
+        }
       })
 
       it('should sanitize tabs in JSON', () => {
         const input = '{"description": "This has\ta tab", "value": 1}'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ description: 'This has a tab', value: 1 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ description: 'This has a tab', value: 1 })
+        }
       })
 
       it('should sanitize Windows line endings (CRLF)', () => {
         const input = '{"description": "Windows\r\nline", "value": 1}'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ description: 'Windows line', value: 1 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ description: 'Windows line', value: 1 })
+        }
       })
 
       it('should sanitize carriage returns', () => {
         const input = '{"description": "Old Mac\rline", "value": 1}'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ description: 'Old Mac line', value: 1 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ description: 'Old Mac line', value: 1 })
+        }
       })
 
       it('should sanitize other control characters', () => {
         const input = '{"description": "Control\x00\x01\x1Fchars", "value": 1}'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ description: 'Control   chars', value: 1 })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ description: 'Control   chars', value: 1 })
+        }
       })
     })
 
@@ -188,107 +212,152 @@ a newline", "value": 1}`
       it('should extract and parse JSON from code block', () => {
         const input = '```json\n{"status": "ok"}\n```'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ status: 'ok' })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ status: 'ok' })
+        }
       })
 
       it('should extract and parse JSON with surrounding text', () => {
         const input = 'Here is your data: {"result": [1, 2, 3]} Hope this helps!'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ result: [1, 2, 3] })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ result: [1, 2, 3] })
+        }
       })
 
       it('should handle extraction and sanitization together', () => {
         const input = 'Response: ```json\n{"desc": "Has\nnewline"}\n```'
         const result = parseJSONResponse(input)
-        expect(result).toEqual({ desc: 'Has newline' })
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual({ desc: 'Has newline' })
+        }
       })
     })
 
     describe('error handling', () => {
-      it('should throw error for completely invalid JSON', () => {
+      it('should return error for completely invalid JSON', () => {
         const input = 'This is not JSON at all!'
-        expect(() => parseJSONResponse(input)).toThrow(/Failed to parse JSON response/)
+        const result = parseJSONResponse(input)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.kind).toBe('JSONExtractionError')
+          expect(result.error.message).toMatch(/Failed to parse JSON response/)
+        }
       })
 
       it('should include error context in error message', () => {
         const input = 'Invalid JSON: {broken: true}'
-        expect(() => parseJSONResponse(input)).toThrow(/Text preview: Invalid JSON/)
+        const result = parseJSONResponse(input)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.context.textPreview).toContain('Invalid JSON')
+        }
       })
 
-      it('should truncate long text in error message', () => {
+      it('should truncate long text in error context', () => {
         const input = 'x'.repeat(200)
-        expect(() => parseJSONResponse(input)).toThrow(/Text preview:/)
-        expect(() => parseJSONResponse(input)).toThrow(/\.{3}/) // Contains "..."
+        const result = parseJSONResponse(input)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.context.textPreview).toBeDefined()
+          expect(result.error.context.textPreview.length).toBeLessThanOrEqual(100)
+        }
       })
 
       it('should provide both direct and extraction error details', () => {
         const input = '{invalid}'
-        const errorRegex = /Direct parse error:.*Extraction parse error:/s
-        expect(() => parseJSONResponse(input)).toThrow(errorRegex)
+        const result = parseJSONResponse(input)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.message).toMatch(/Direct parse error/)
+          expect(result.error.message).toMatch(/Extraction parse error/)
+        }
       })
     })
   })
 
   describe('validateJSONStructure', () => {
     describe('valid structures', () => {
-      it('should return true when all required fields exist', () => {
+      it('should return ok when all required fields exist', () => {
         const data = { name: 'test', age: 30, email: 'test@example.com' }
         const requiredFields = ['name', 'age', 'email']
-        expect(validateJSONStructure(data, requiredFields)).toBe(true)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.value).toEqual(data)
+        }
       })
 
-      it('should return true with empty required fields array', () => {
+      it('should return ok with empty required fields array', () => {
         const data = { anything: 'goes' }
-        expect(validateJSONStructure(data, [])).toBe(true)
+        const result = validateJSONStructure(data, [])
+        expect(result.ok).toBe(true)
       })
 
-      it('should return true when object has extra fields', () => {
+      it('should return ok when object has extra fields', () => {
         const data = { name: 'test', age: 30, extra: 'field' }
         const requiredFields = ['name', 'age']
-        expect(validateJSONStructure(data, requiredFields)).toBe(true)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(true)
       })
 
-      it('should return true for nested object fields (top level check)', () => {
+      it('should return ok for nested object fields (top level check)', () => {
         const data = { user: { name: 'test' }, status: 'active' }
         const requiredFields = ['user', 'status']
-        expect(validateJSONStructure(data, requiredFields)).toBe(true)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(true)
       })
     })
 
     describe('invalid structures', () => {
-      it('should return false when required field is missing', () => {
+      it('should return error when required field is missing', () => {
         const data = { name: 'test' }
         const requiredFields = ['name', 'age']
-        expect(validateJSONStructure(data, requiredFields)).toBe(false)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.kind).toBe('JSONStructureError')
+          expect(result.error.context.missingFields).toEqual(['age'])
+        }
       })
 
-      it('should return false when data is null', () => {
+      it('should return error when data is null', () => {
         const requiredFields = ['name']
-        expect(validateJSONStructure(null, requiredFields)).toBe(false)
+        const result = validateJSONStructure(null, requiredFields)
+        expect(result.ok).toBe(false)
       })
 
-      it('should return false when data is undefined', () => {
+      it('should return error when data is undefined', () => {
         const requiredFields = ['name']
-        expect(validateJSONStructure(undefined, requiredFields)).toBe(false)
+        const result = validateJSONStructure(undefined, requiredFields)
+        expect(result.ok).toBe(false)
       })
 
-      it('should return false when data is not an object', () => {
+      it('should return error when data is not an object', () => {
         const requiredFields = ['length']
-        expect(validateJSONStructure('string', requiredFields)).toBe(false)
-        expect(validateJSONStructure(123, requiredFields)).toBe(false)
-        expect(validateJSONStructure(true, requiredFields)).toBe(false)
+        expect(validateJSONStructure('string', requiredFields).ok).toBe(false)
+        expect(validateJSONStructure(123, requiredFields).ok).toBe(false)
+        expect(validateJSONStructure(true, requiredFields).ok).toBe(false)
       })
 
-      it('should return false when data is an array', () => {
+      it('should return error when data is an array', () => {
         const data = [{ name: 'test' }]
         const requiredFields = ['name']
-        expect(validateJSONStructure(data, requiredFields)).toBe(false)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(false)
       })
 
-      it('should return false when any required field is missing', () => {
+      it('should return error when any required field is missing', () => {
         const data = { name: 'test', age: 30 }
         const requiredFields = ['name', 'age', 'email']
-        expect(validateJSONStructure(data, requiredFields)).toBe(false)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(false)
+        if (!result.ok) {
+          expect(result.error.context.missingFields).toEqual(['email'])
+        }
       })
     })
 
@@ -296,22 +365,26 @@ a newline", "value": 1}`
       it('should handle fields with falsy values', () => {
         const data = { name: '', age: 0, active: false, value: null }
         const requiredFields = ['name', 'age', 'active', 'value']
-        expect(validateJSONStructure(data, requiredFields)).toBe(true)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(true)
       })
 
-      it('should treat undefined field value as missing', () => {
+      it('should treat undefined field value as present (in operator behavior)', () => {
         const data = { name: 'test', age: undefined }
         const requiredFields = ['name', 'age']
         // 'in' operator returns true for undefined values
-        expect(validateJSONStructure(data, requiredFields)).toBe(true)
+        const result = validateJSONStructure(data, requiredFields)
+        expect(result.ok).toBe(true)
       })
 
       it('should handle empty object with no required fields', () => {
-        expect(validateJSONStructure({}, [])).toBe(true)
+        const result = validateJSONStructure({}, [])
+        expect(result.ok).toBe(true)
       })
 
       it('should handle empty object with required fields', () => {
-        expect(validateJSONStructure({}, ['name'])).toBe(false)
+        const result = validateJSONStructure({}, ['name'])
+        expect(result.ok).toBe(false)
       })
     })
   })
@@ -331,27 +404,34 @@ loves to code",
 
 This response includes the user's information as requested.`
 
-      const parsed = parseJSONResponse(llmResponse)
-      expect(parsed).toEqual({
+      const parseResult = parseJSONResponse(llmResponse)
+      expect(parseResult.ok).toBe(true)
+      if (!parseResult.ok) return
+
+      expect(parseResult.value).toEqual({
         name: 'Alice Johnson',
         description: 'A software engineer who loves to code',
         tags: ['developer', 'typescript', 'testing'],
       })
 
-      expect(validateJSONStructure(parsed, ['name', 'description', 'tags'])).toBe(true)
+      const validateResult = validateJSONStructure(parseResult.value, ['name', 'description', 'tags'])
+      expect(validateResult.ok).toBe(true)
     })
 
     it('should handle Claude Haiku-style JSON with control characters', () => {
       const claudeResponse = '{"result": "success", "message": "Task completed\nsuccessfully", "details": {"count": 5}}'
-      const parsed = parseJSONResponse(claudeResponse)
+      const parseResult = parseJSONResponse(claudeResponse)
+      expect(parseResult.ok).toBe(true)
+      if (!parseResult.ok) return
 
-      expect(parsed).toEqual({
+      expect(parseResult.value).toEqual({
         result: 'success',
         message: 'Task completed successfully',
         details: { count: 5 },
       })
 
-      expect(validateJSONStructure(parsed, ['result', 'message', 'details'])).toBe(true)
+      const validateResult = validateJSONStructure(parseResult.value, ['result', 'message', 'details'])
+      expect(validateResult.ok).toBe(true)
     })
 
     it('should extract, parse, and validate complex nested structure', () => {
@@ -367,9 +447,13 @@ This response includes the user's information as requested.`
   "metadata": {"total": 2}
 }`
 
-      const parsed = parseJSONResponse(response)
-      expect(validateJSONStructure(parsed, ['status', 'data', 'metadata'])).toBe(true)
-      expect(parsed.data.users).toHaveLength(2)
+      const parseResult = parseJSONResponse(response)
+      expect(parseResult.ok).toBe(true)
+      if (!parseResult.ok) return
+
+      const validateResult = validateJSONStructure(parseResult.value, ['status', 'data', 'metadata'])
+      expect(validateResult.ok).toBe(true)
+      expect(parseResult.value.data.users).toHaveLength(2)
     })
   })
 })

@@ -5,6 +5,9 @@
  * @requires - No external dependencies (pure TypeScript utility)
  */
 
+import { ok, err, type JSONResult } from './json/result.js'
+import { jsonParseError, jsonExtractionError, jsonStructureError } from './json/errors.js'
+
 /**
  * Extract JSON from text that may contain additional content
  * Handles common patterns:
@@ -116,24 +119,39 @@ function sanitizeJSON(text: string): string {
 /**
  * Parse JSON with robust error handling
  * Attempts to extract JSON from text if direct parsing fails
+ *
+ * @param text - The text to parse (may contain JSON within other content)
+ * @returns Result containing parsed object, or error
+ *
+ * @example
+ * ```typescript
+ * const result = parseJSONResponse<Config>('{"name": "test"}')
+ * if (result.ok) {
+ *   console.log(result.value.name) // "test"
+ * } else {
+ *   console.error(result.error.message)
+ * }
+ * ```
  */
-export function parseJSONResponse<T = any>(text: string): T {
+export function parseJSONResponse<T = any>(text: string): JSONResult<T> {
   // First attempt: sanitize and parse directly
   try {
     const sanitized = sanitizeJSON(text);
-    return JSON.parse(sanitized);
+    return ok(JSON.parse(sanitized));
   } catch (firstError) {
     // Second attempt: extract JSON first, then sanitize and parse
     try {
       const extracted = extractJSON(text);
       const sanitized = sanitizeJSON(extracted);
-      return JSON.parse(sanitized);
+      return ok(JSON.parse(sanitized));
     } catch (secondError) {
-      // If both fail, throw error with context
-      throw new Error(
-        `Failed to parse JSON response. Direct parse error: ${firstError instanceof Error ? firstError.message : 'Unknown'}. ` +
-        `Extraction parse error: ${secondError instanceof Error ? secondError.message : 'Unknown'}. ` +
-        `Text preview: ${text.substring(0, 100)}...`
+      // If both fail, return error with context
+      return err(
+        jsonExtractionError(
+          text,
+          firstError as Error,
+          secondError as Error
+        )
       );
     }
   }
@@ -141,14 +159,34 @@ export function parseJSONResponse<T = any>(text: string): T {
 
 /**
  * Validate that the parsed result has expected structure
+ *
+ * @param data - The parsed data to validate
+ * @param requiredFields - Array of required field names
+ * @returns Result containing validated data, or error if structure is invalid
+ *
+ * @example
+ * ```typescript
+ * const result = validateJSONStructure(data, ['name', 'version'])
+ * if (result.ok) {
+ *   console.log('Valid structure:', result.value)
+ * } else {
+ *   console.error('Missing fields:', result.error.context.missingFields)
+ * }
+ * ```
  */
-export function validateJSONStructure(
+export function validateJSONStructure<T = any>(
   data: any,
   requiredFields: string[]
-): boolean {
+): JSONResult<T> {
   if (!data || typeof data !== 'object') {
-    return false;
+    return err(jsonStructureError(data, requiredFields, requiredFields));
   }
 
-  return requiredFields.every((field) => field in data);
+  const missingFields = requiredFields.filter((field) => !(field in data));
+
+  if (missingFields.length > 0) {
+    return err(jsonStructureError(data, requiredFields, missingFields));
+  }
+
+  return ok(data as T);
 }
