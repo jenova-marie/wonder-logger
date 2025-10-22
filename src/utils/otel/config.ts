@@ -88,17 +88,25 @@ export function createTelemetryFromConfig(
   const { configPath, required = true, overrides = {} } = options
 
   // Load config
-  const config = loadConfig({ configPath, required })
+  const configResult = loadConfig({ configPath, required })
 
-  if (!config) {
-    // Config not found and not required - use defaults
-    return createTelemetry({
-      serviceName: overrides.serviceName || 'default',
-      serviceVersion: overrides.serviceVersion || '1.0.0',
-      environment: overrides.environment || 'development',
-      ...overrides,
-    })
+  if (!configResult.ok) {
+    // Config loading failed
+    if (!required) {
+      // Config not found and not required - use defaults
+      return createTelemetry({
+        serviceName: overrides.serviceName || 'default',
+        serviceVersion: overrides.serviceVersion || '1.0.0',
+        environment: overrides.environment || 'development',
+        ...overrides,
+      })
+    }
+
+    // Config was required but failed - throw error
+    throw new Error(`Failed to load config: ${configResult.error.message}`)
   }
+
+  const config = configResult.value
 
   // Skip OTEL creation if disabled
   if (!config.otel.enabled) {

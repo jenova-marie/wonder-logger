@@ -41,8 +41,7 @@ import pino from 'pino'
 
 export interface LoggerOptions {
   /**
-   * Logger name / service name
-   * @required
+   * Logger name / service name (required)
    */
   name: string
 

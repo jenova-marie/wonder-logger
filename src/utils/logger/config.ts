@@ -133,16 +133,24 @@ export function createLoggerFromConfig(
   const { configPath, required = true, overrides = {} } = options
 
   // Load config
-  const config = loadConfig({ configPath, required })
+  const configResult = loadConfig({ configPath, required })
 
-  if (!config) {
-    // Config not found and not required - use defaults
-    return createLogger({
-      name: 'default',
-      level: overrides.level || 'info',
-      transports: overrides.transports,
-    })
+  if (!configResult.ok) {
+    // Config loading failed
+    if (!required) {
+      // Config not found and not required - use defaults
+      return createLogger({
+        name: 'default',
+        level: overrides.level || 'info',
+        transports: overrides.transports,
+      })
+    }
+
+    // Config was required but failed - throw error
+    throw new Error(`Failed to load config: ${configResult.error.message}`)
   }
+
+  const config = configResult.value
 
   // Skip logger creation if disabled
   if (!config.logger.enabled) {
