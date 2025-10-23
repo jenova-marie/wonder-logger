@@ -497,21 +497,111 @@ sdk.forceFlush(): Promise<void>
 ### Configuration
 
 ```typescript
-// Load and parse configuration
+// Load and parse configuration (returns Result type)
 loadConfig(options?: {
   configPath?: string
   required?: boolean
-}): WonderLoggerConfig | null
+}): ConfigResult<WonderLoggerConfig>
 
-// Load from specific file
-loadConfigFromFile(filePath: string): WonderLoggerConfig
+// Load from specific file (returns Result type)
+loadConfigFromFile(filePath: string): ConfigResult<WonderLoggerConfig>
 
-// Find config file in cwd
-findConfigFile(fileName?: string): string | null
+// Find config file in cwd (returns Result type)
+findConfigFile(fileName?: string): ConfigResult<string>
 
-// Parse YAML with env var interpolation
-parseYamlWithEnv(yamlContent: string): any
+// JSON parsing utilities (return Result types)
+parseJSONResponse<T>(text: string): JSONResult<T>
+validateJSONStructure<T>(data: unknown, requiredFields: string[]): JSONResult<T>
+extractJSON(text: string): string
 ```
+
+### Error Handling with Result Types
+
+⭐Wonder Logger⭐ v2.0 introduces type-safe error handling using [ts-rust-result](https://github.com/jenova-marie/ts-rust-result). Config loading and JSON parsing functions now return `Result<T, E>` types instead of throwing errors, enabling explicit error handling with full type safety.
+
+```typescript
+import {
+  loadConfig,
+  parseJSONResponse,
+  validateJSONStructure,
+  type ConfigResult,
+  type JSONResult,
+  type ConfigError,
+  type JSONError
+} from 'wonder-logger'
+
+// Config loading returns Result<Config, ConfigError>
+const configResult = loadConfig()
+
+if (configResult.ok) {
+  // TypeScript knows configResult.value is WonderLoggerConfig
+  const config = configResult.value
+  console.log('Config loaded:', config.service.name)
+} else {
+  // TypeScript knows configResult.error is ConfigError
+  const error = configResult.error
+
+  // Pattern match on error kind
+  switch (error.kind) {
+    case 'FileNotFound':
+      console.error('Config file not found:', error.context.path)
+      break
+    case 'InvalidYAML':
+      console.error('Invalid YAML syntax:', error.message)
+      break
+    case 'MissingEnvVar':
+      console.error('Missing env var:', error.context.varName)
+      break
+    default:
+      console.error('Config error:', error.message)
+  }
+}
+
+// JSON parsing returns Result<T, JSONError>
+const jsonResult = parseJSONResponse<{ status: string }>('{"status": "ok"}')
+
+if (jsonResult.ok) {
+  console.log('Status:', jsonResult.value.status)
+} else {
+  console.error('JSON parse failed:', jsonResult.error.message)
+}
+
+// JSON validation returns Result<T, JSONError>
+const data = { name: 'test', age: 30 }
+const validationResult = validateJSONStructure(data, ['name', 'age', 'email'])
+
+if (!validationResult.ok) {
+  console.error('Missing fields:', validationResult.error.context.missingFields)
+}
+```
+
+**Exported Types and Utilities:**
+```typescript
+// Core Result types
+import { ok, err, type Result } from 'wonder-logger'
+
+// Error types
+import { type ConfigError, type JSONError, type DomainError } from 'wonder-logger'
+
+// Error factory functions
+import {
+  fileNotFound,
+  fileReadError,
+  invalidJSON,
+  fromError,
+  tryResultSafe,
+  toSentryError
+} from 'wonder-logger'
+
+// Observability helpers
+import {
+  toLogContext,      // Convert error to Pino log context
+  toSpanAttributes,  // Convert error to OpenTelemetry span attributes
+  toMetricLabels     // Convert error to Prometheus metric labels
+} from 'wonder-logger'
+```
+
+**For comprehensive documentation** on Result types and error handling patterns, see the [ts-rust-result documentation](https://github.com/jenova-marie/ts-rust-result).
 
 ## Environment Variables
 
