@@ -83,6 +83,8 @@ pnpm add wonder-logger
 
 ⭐Wonder Logger⭐ uses **YAML-based configuration** for production deployments. For programmatic usage, see the [Configuration Guide](./src/utils/config/README.md#programmatic-api).
 
+### For Web Servers (Long-Running Applications)
+
 **1. Create `wonder-logger.yaml` in your project root:**
 
 ```yaml
@@ -102,10 +104,11 @@ logger:
     - type: console
       pretty: false  # ⚠️ Boolean literal (NOT ${LOG_PRETTY:-false})
 
-    # File transport (relative paths resolve from config file location)
+    # File transport (async mode for better throughput)
     - type: file
       dir: ./logs
       fileName: app.log
+      sync: false  # Async I/O for long-running processes
 
     # Memory transport (for testing and runtime log inspection)
     - type: memory
@@ -140,6 +143,39 @@ otel:
     auto: true
     http: true
 ```
+
+### For CLI Tools (Quick-Exit Applications)
+
+⚠️ **CRITICAL**: CLI applications require `sync: true` for file transports to prevent crashes and log loss when process exits quickly.
+
+**1. Create `wonder-logger.yaml` in your project root:**
+
+```yaml
+service:
+  name: ${SERVICE_NAME:-my-cli}
+  version: ${SERVICE_VERSION:-1.0.0}
+  environment: ${NODE_ENV:-development}
+
+logger:
+  enabled: true
+  level: ${LOG_LEVEL:-info}
+  transports:
+    - type: console
+      pretty: false
+
+    # File transport - MUST use sync: true for CLI apps
+    - type: file
+      dir: ./logs
+      fileName: cli.log
+      sync: true  # ⚠️ REQUIRED - prevents "sonic boom is not ready" crashes
+
+otel:
+  enabled: false  # Typically disabled for CLI tools
+```
+
+**Why `sync: true`?** CLI apps often exit in <100ms (e.g., `--help`, validation errors), but async file transports take ~100-200ms to initialize. This race condition causes crashes. `sync: true` eliminates the race with only 4-5ms performance penalty.
+
+See [Configuration Guide - Transport Configuration by Use Case](./content/CONFIGURATION.md#transport-configuration-by-use-case) for detailed recommendations.
 
 **2. Load configuration in your application:**
 

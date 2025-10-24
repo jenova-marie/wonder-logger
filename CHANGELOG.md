@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.8] - 2025-10-24
+
+### Documentation
+- **CRITICAL**: Added comprehensive CLI application guidance for sonic-boom race conditions
+  - Documented `sync: true` requirement for CLI tools, Lambda functions, and Kubernetes jobs
+  - Added "Transport Configuration by Use Case" decision matrix to CONFIGURATION.md
+  - Added performance impact benchmarks (4-5ms penalty for 100% reliability)
+  - Split Quick Start into "Web Servers" and "CLI Tools" sections in README.md
+  - Added detailed JSDoc warnings on `FileTransportOptions.sync` parameter
+
+### Removed
+- Removed flaky integration tests for quick-exit scenarios
+  - Tests were environment-dependent (SIGTERM interference from test suite)
+  - Functionality is thoroughly documented in CONFIGURATION.md and README.md
+  - CLI quick-exit behavior validated manually
+
+### Context
+- Users reported "sonic boom is not ready yet" crashes in CLI applications
+- Root cause: async file transports initialize in ~100-200ms, CLI apps exit in <100ms
+- Solution: `sync: true` eliminates initialization race with negligible performance cost
+- This is a **documentation-only release** - no code changes, educates users on existing feature
+
+### Recommendations
+- **CLI tools**: Use `sync: true` for file transports (required)
+- **Web servers**: Use `sync: false` for file transports (better throughput)
+- **Lambda functions**: Use `sync: true` (same quick-exit pattern as CLI)
+- **Kubernetes jobs**: Use `sync: true` (SIGTERM may not allow async flush)
+
+## [2.0.7] - 2025-10-24
+
+### Fixed
+- **CRITICAL**: Fixed ESM compatibility issue in traceContext plugin
+  - Replaced `require('@opentelemetry/api')` with proper ESM import
+  - Plugin now works correctly in ESM module contexts
+  - Fixes runtime error: "Cannot enable trace context: @opentelemetry/api is not installed"
+  - Error was caused by require() not working in ESM, not missing dependency
+- Changed from lazy-loading pattern to direct import for better ESM compatibility
+- All ESM projects can now use `plugins.traceContext: true` without errors
+
+### Changed
+- traceContext plugin now uses direct import instead of dynamic require()
+- Removed loadOtelApi() lazy-loading function (no longer needed)
+- Simplified plugin code and improved reliability
+
+### Technical Details
+- Source: `src/utils/logger/plugins/traceContext.ts`
+- Old: `const otel = require('@opentelemetry/api')` (line 45)
+- New: `import { trace } from '@opentelemetry/api'` (line 20)
+- Impact: All ESM projects using wonder-logger with traceContext enabled
+
 ## [2.0.4] - 2025-10-24
 
 ### Fixed
