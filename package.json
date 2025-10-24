@@ -1,6 +1,6 @@
 {
   "name": "@jenova-marie/wonder-logger",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Production-ready observability toolkit combining OpenTelemetry instrumentation with structured Pino logging for Node.js applications",
   "type": "module",
   "publishConfig": {
