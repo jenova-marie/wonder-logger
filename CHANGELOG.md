@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.4] - 2025-10-24
+
+### Fixed
+- **CRITICAL**: Moved `pino-pretty` from devDependencies to dependencies
+  - Console transport with `pretty: true` now works without manual installation
+  - Fixes runtime error: "unable to determine transport target for 'pino-pretty'"
+  - All documented configuration examples now work out-of-the-box
+- Verified `@opentelemetry/api` is correctly listed as a dependency (already present)
+
+### Documentation
+- Added comprehensive configuration schema documentation to `content/CONFIGURATION.md`
+  - ⚠️ Type safety warnings for environment variable interpolation
+  - Detailed validation error reference with troubleshooting guide
+  - Correct/incorrect examples showing proper boolean/number literal usage
+  - Debug script template for extracting detailed validation errors
+- Updated README.md with prominent links to configuration documentation
+- Updated all Quick Start examples with inline warnings about common mistakes
+
+### Notes
+- This patch restores the "batteries included" promise of wonder-logger
+- Users can now use all features without manual dependency installation
+- Peer dependency warnings for pino-opentelemetry-transport (expects Pino ^8 || ^9, we use ^10) are cosmetic and do not affect functionality
+
 ## [2.0.0] - 2025-10-23
 
 ### Added

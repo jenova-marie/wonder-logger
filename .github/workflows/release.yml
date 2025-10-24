@@ -38,6 +38,15 @@ jobs:
       - name: Run unit tests
         run: pnpm test:unit
 
+      - name: Verify NPM authentication
+        run: |
+          echo "Verifying npm authentication..."
+          npm whoami
+          echo "Token has access to the following packages:"
+          npm access ls-packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish to npm
         run: pnpm publish --access public --no-git-checks
         env:
