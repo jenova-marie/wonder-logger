@@ -13,14 +13,14 @@ service:
   environment: ${NODE_ENV:-development}
 
 logger:
-  enabled: true
+  enabled: true  # Boolean literal (NOT ${LOGGER_ENABLED:-true})
   level: ${LOG_LEVEL:-info}
   transports:
     - type: console
-      pretty: ${LOG_PRETTY:-false}
+      pretty: false  # Boolean literal (NOT ${LOG_PRETTY:-false})
 
 otel:
-  enabled: true
+  enabled: true  # Boolean literal (NOT ${OTEL_ENABLED:-true})
   tracing:
     enabled: true
     exporter: otlp
@@ -47,39 +47,71 @@ if (result.ok) {
 
 ### Syntax
 
-```yaml
-# Required variable (error if not set)
-service:
-  name: ${SERVICE_NAME}
+| Syntax | Behavior | Example |
+|--------|----------|---------|
+| `${VAR_NAME}` | **Required variable** - Throws error if not set | `${SERVICE_NAME}` |
+| `${VAR_NAME:-default}` | **Optional variable** - Uses default if not set | `${LOG_LEVEL:-info}` |
 
-# Optional variable with default
+### ⚠️ CRITICAL: Type Safety Limitations
+
+**Environment variable interpolation ONLY works with string values.** YAML types (booleans, numbers, arrays, objects) **MUST use literal values**, not environment variable syntax.
+
+#### ✅ CORRECT Usage
+
+```yaml
+# Strings - interpolation works
 service:
   name: ${SERVICE_NAME:-my-api}
   version: ${npm_package_version:-1.0.0}
-```
+  environment: ${NODE_ENV:-development}
 
-### Examples
-
-```yaml
-# Simple substitution
 logger:
-  level: ${LOG_LEVEL}  # Uses LOG_LEVEL env var
+  level: ${LOG_LEVEL:-info}  # String enum value - works!
 
-# With default
-logger:
-  level: ${LOG_LEVEL:-info}  # Uses LOG_LEVEL or 'info'
-
-# Boolean values
-logger:
-  enabled: ${LOGGER_ENABLED:-true}
-
-# Numeric values
 otel:
+  tracing:
+    exporter: ${OTEL_TRACE_EXPORTER:-otlp}  # String enum value - works!
+    endpoint: ${OTEL_TRACES_ENDPOINT:-http://localhost:4318/v1/traces}
+
+# Booleans, numbers - use literals
+logger:
+  enabled: true  # Boolean literal
+  transports:
+    - type: console
+      pretty: false  # Boolean literal
+
+otel:
+  enabled: true  # Boolean literal
   metrics:
     exporters:
       - type: prometheus
-        port: ${PROMETHEUS_PORT:-9464}
+        port: 9464  # Number literal
 ```
+
+#### ❌ INCORRECT Usage
+
+```yaml
+# DO NOT USE environment variable syntax for booleans/numbers!
+logger:
+  enabled: ${LOGGER_ENABLED:-true}  # ❌ ERROR: expected boolean, received string
+  transports:
+    - type: console
+      pretty: ${LOG_PRETTY:-false}  # ❌ ERROR: expected boolean, received string
+
+otel:
+  enabled: ${OTEL_ENABLED:-true}  # ❌ ERROR: expected boolean, received string
+  tracing:
+    sampleRate: ${SAMPLE_RATE:-1.0}  # ❌ ERROR: expected number, received string
+  metrics:
+    exporters:
+      - type: prometheus
+        port: ${PROMETHEUS_PORT:-9464}  # ❌ ERROR: expected number, received string
+```
+
+**Why this fails:**
+1. YAML parser reads `${LOG_PRETTY:-false}` as the string `"${LOG_PRETTY:-false}"`
+2. Environment variable substitution converts it to the string `"false"` (not boolean `false`)
+3. Zod schema expects `boolean`, receives `string`, validation fails
 
 ## Config-Driven Factory Functions
 
@@ -137,12 +169,118 @@ if (!result.ok && result.error.kind === 'SchemaValidation') {
 }
 ```
 
-Example validation error:
+### Common Validation Errors
 
+#### Type Mismatch (Boolean)
+
+**Error:**
 ```
-Validation errors:
-  logger.level: Invalid enum value. Expected 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal', received 'verbose'
-  otel.tracing.sampleRate: Number must be less than or equal to 1
+Invalid input: expected boolean, received string
+```
+
+**Cause:** Using environment variable syntax for booleans.
+
+**Fix:**
+```yaml
+# ❌ WRONG
+logger:
+  enabled: ${LOGGER_ENABLED:-true}
+
+# ✅ CORRECT
+logger:
+  enabled: true
+```
+
+#### Type Mismatch (Number)
+
+**Error:**
+```
+Invalid input: expected number, received string
+```
+
+**Cause:** Using environment variable syntax for numbers.
+
+**Fix:**
+```yaml
+# ❌ WRONG
+otel:
+  metrics:
+    exporters:
+      - type: prometheus
+        port: ${PROMETHEUS_PORT:-9464}
+
+# ✅ CORRECT
+otel:
+  metrics:
+    exporters:
+      - type: prometheus
+        port: 9464
+```
+
+#### Invalid Enum Value
+
+**Error:**
+```
+Invalid enum value. Expected 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal', received 'verbose'
+```
+
+**Fix:**
+```yaml
+# ❌ WRONG
+logger:
+  level: verbose
+
+# ✅ CORRECT
+logger:
+  level: debug  # Valid values: trace, debug, info, warn, error, fatal, silent
+```
+
+### Debugging Validation Errors
+
+Create a debug script to extract detailed validation errors:
+
+```typescript
+// debug-config.mjs
+import { loadConfig } from '@jenova-marie/wonder-logger'
+
+const configResult = loadConfig({ configPath: './wonder-logger.yaml' })
+
+if (!configResult.ok) {
+  const error = configResult.error
+
+  if (error.context && error.context.issues) {
+    console.error('❌ Validation Errors:\n')
+    error.context.issues.forEach((issue, index) => {
+      console.log(`${index + 1}. Error at path: ${issue.path.join('.')}`)
+      console.log(`   Message: ${issue.message}\n`)
+    })
+  } else {
+    console.error('Error:', error.message)
+  }
+
+  process.exit(1)
+}
+
+console.log('✅ Configuration valid!')
+```
+
+**Run:**
+```bash
+node debug-config.mjs
+```
+
+Example output:
+```
+❌ Validation Errors:
+
+1. Error at path: logger.transports.0.pretty
+   Message: Invalid input: expected boolean, received string
+
+2. Error at path: otel.enabled
+   Message: Invalid input: expected boolean, received string
+
+3. Error at path: otel.metrics.exporters.0.port
+   Message: Invalid input: expected number, received string
 ```
 
 ## Relative Paths

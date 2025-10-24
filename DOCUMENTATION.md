@@ -2,6 +2,40 @@
 
 Welcome to **Wonder Logger**! This document serves as your comprehensive guide to all documentation available in this package.
 
+## ⚠️ IMPORTANT: Configuration Type Safety
+
+**If you're getting configuration validation errors**, read this first:
+
+Environment variable interpolation (`${VAR:-default}`) **ONLY works with string values**. For booleans and numbers, you MUST use literal values:
+
+```yaml
+# ❌ WRONG - Will cause "expected boolean, received string" error
+logger:
+  enabled: ${LOGGER_ENABLED:-true}
+
+# ✅ CORRECT - Use boolean literal
+logger:
+  enabled: true
+
+# ❌ WRONG - Will cause "expected number, received string" error
+otel:
+  metrics:
+    exporters:
+      - type: prometheus
+        port: ${PROMETHEUS_PORT:-9464}
+
+# ✅ CORRECT - Use number literal
+otel:
+  metrics:
+    exporters:
+      - type: prometheus
+        port: 9464
+```
+
+**See [content/CONFIGURATION.md](./content/CONFIGURATION.md) for complete details and troubleshooting.**
+
+---
+
 ## 📖 Quick Start
 
 - **[README.md](./README.md)** - Start here! Installation, quick examples, and feature overview
@@ -11,10 +45,12 @@ Welcome to **Wonder Logger**! This document serves as your comprehensive guide t
 
 ### Essential Reading
 
-1. **[content/CONFIGURATION.md](./content/CONFIGURATION.md)** - YAML configuration system
-   - Environment variable interpolation
+1. **[content/CONFIGURATION.md](./content/CONFIGURATION.md)** - **ESSENTIAL!** YAML configuration system
+   - ⚠️ **CRITICAL TYPE SAFETY WARNINGS** - Environment variables with booleans/numbers
+   - Complete schema reference for all configuration options
+   - Environment variable interpolation syntax and limitations
+   - Validation error troubleshooting with detailed examples
    - Config-driven factory functions
-   - Schema validation with Zod
    - Multi-environment setup
 
 2. **[content/ERROR_HANDLING.md](./content/ERROR_HANDLING.md)** - Type-safe error handling
@@ -173,6 +209,6 @@ MIT - See [LICENSE](./LICENSE) for details.
 
 ---
 
-**Version**: 2.0.0
+**Version**: 2.0.1
 **Last Updated**: October 2025
 **Maintained by**: jenova-marie

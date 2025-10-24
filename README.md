@@ -60,6 +60,13 @@ pnpm add wonder-logger
 
 **Comprehensive guides for all features:**
 
+- **[⚙️ Configuration Guide](./content/CONFIGURATION.md)** - **START HERE!** YAML configuration system
+  - ⚠️ **Type Safety Warnings** - Critical info about environment variables with booleans/numbers
+  - Complete schema reference for all configuration options
+  - Environment variable interpolation syntax
+  - Validation error troubleshooting with examples
+  - Multi-environment setup
+
 - **[📝 Structured Logging Guide](./src/utils/logger/README.md)** - Complete Pino logger documentation
   - Transports (console, file, OTEL, memory)
   - Plugins (trace context, Morgan HTTP logging)
@@ -71,12 +78,6 @@ pnpm add wonder-logger
   - Metrics exporters (Prometheus, OTLP)
   - Auto-instrumentation setup
   - Manual span instrumentation with `withSpan`
-
-- **[⚙️ Configuration Guide](./src/utils/config/README.md)** - YAML-based configuration system
-  - Environment variable interpolation
-  - Config-driven factories
-  - Validation with Zod schemas
-  - Multi-environment setup
 
 ## Quick Start
 
@@ -91,7 +92,7 @@ service:
   environment: ${NODE_ENV:-development}
 
 logger:
-  enabled: true
+  enabled: true  # ⚠️ Boolean literal (NOT ${LOGGER_ENABLED:-true})
   level: ${LOG_LEVEL:-info}
   redact:
     - password
@@ -99,7 +100,7 @@ logger:
   transports:
     # Console transport (JSON format in production)
     - type: console
-      pretty: ${LOG_PRETTY:-false}
+      pretty: false  # ⚠️ Boolean literal (NOT ${LOG_PRETTY:-false})
 
     # File transport (relative paths resolve from config file location)
     - type: file
@@ -121,7 +122,7 @@ logger:
     traceContext: true
 
 otel:
-  enabled: true
+  enabled: true  # ⚠️ Boolean literal (NOT ${OTEL_ENABLED:-true})
   tracing:
     enabled: true
     exporter: ${OTEL_TRACE_EXPORTER:-otlp}
@@ -131,7 +132,7 @@ otel:
     enabled: true
     exporters:
       - type: prometheus
-        port: ${PROMETHEUS_PORT:-9464}
+        port: 9464  # ⚠️ Number literal (NOT ${PROMETHEUS_PORT:-9464})
       - type: otlp
         endpoint: ${OTEL_METRICS_ENDPOINT:-http://localhost:4318/v1/metrics}
         exportIntervalMillis: 60000

@@ -26,3 +26,6 @@ tests/integration/logs/
 
 # Local data files
 data/
+
+# Iris MCP
+**/iris-mcp-*
